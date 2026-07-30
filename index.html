@@ -37,6 +37,24 @@
   .session-bar{display:flex;justify-content:space-between;align-items:center;margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 16px;flex-wrap:wrap;gap:8px;}
   .session-bar .who{font-size:13px;}
   .session-bar .who .name{font-weight:600;}
+  .session-actions{display:flex;align-items:center;gap:8px;}
+  .icon-btn{
+    width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center;
+    font-size:15px;border-radius:5px;border:1px solid var(--line-strong);background:var(--card);color:var(--text);cursor:pointer;
+  }
+  .icon-btn:hover{border-color:var(--amber);color:var(--amber);}
+
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(10,12,14,.72);display:flex;align-items:center;justify-content:center;
+    padding:20px;z-index:100;
+  }
+  .modal-overlay.hidden{display:none;}
+  .modal-box{
+    width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line-strong);border-radius:8px;padding:20px 22px;
+  }
+  .modal-box h3{margin:0 0 4px;font-size:16px;}
+  .modal-box .sub{font-size:12px;color:var(--text-2);margin:0 0 16px;}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;}
   .badge-admin{font-size:10.5px;background:var(--amber-dim);color:var(--amber);padding:2px 8px;border-radius:20px;margin-left:8px;font-family:'JetBrains Mono',monospace;}
   .badge-worker{font-size:10.5px;background:#2b2f33;color:var(--text-2);padding:2px 8px;border-radius:20px;margin-left:8px;font-family:'JetBrains Mono',monospace;}
 
@@ -245,7 +263,10 @@
         <span class="name" id="who-name"></span>
         <span id="who-badge"></span>
       </div>
-      <button type="button" class="ghost small" id="btn-logout">ውጣ</button>
+      <div class="session-actions">
+        <button type="button" class="icon-btn" id="btn-open-changepass" title="ፓስወርድ ቀይር">🔑</button>
+        <button type="button" class="ghost small" id="btn-logout">ውጣ</button>
+      </div>
     </div>
 
     <div class="section-title"><span class="num">02</span> ቀን እና የስራ ብዛት</div>
@@ -363,7 +384,13 @@
     </div>
 
     <div id="admin-section" class="hidden">
-      <div class="section-title"><span class="num">09</span> 🗂️ የስራ አስኪያጅ ማጠቃለያ (እውነተኛ-ጊዜ)</div>
+      <div class="section-title"><span class="num">09</span> 🔑 የአድሚን ፓስወርድ</div>
+      <div class="card">
+        <p class="sub" style="margin:0 0 12px;">የገባችሁበትን ፓስወርድ ከዚህ መቀየር ትችላላችሁ።</p>
+        <button type="button" class="ghost" id="btn-admin-changepass">ፓስወርድ ቀይር</button>
+      </div>
+
+      <div class="section-title"><span class="num">10</span> 🗂️ የስራ አስኪያጅ ማጠቃለያ (እውነተኛ-ጊዜ)</div>
       <div class="card">
         <div class="grid2">
           <div class="field">
@@ -383,15 +410,40 @@
         </div>
       </div>
 
-      <div class="section-title"><span class="num">10</span> 👥 የተጠቃሚዎች አስተዳደር</div>
+      <div class="section-title"><span class="num">11</span> 👥 የተጠቃሚዎች አስተዳደር</div>
       <div class="card">
         <div class="history" id="users-list"></div>
       </div>
     </div>
 
-    <div class="section-title"><span class="num">11</span> <span id="history-title">የኔ ያለፉ ሪፖርቶች</span></div>
+    <div class="section-title"><span class="num">12</span> <span id="history-title">የኔ ያለፉ ሪፖርቶች</span></div>
     <div class="history" id="history"></div>
 
+  </div>
+
+  <!-- CHANGE PASSWORD MODAL -->
+  <div id="changepass-overlay" class="modal-overlay hidden">
+    <div class="modal-box">
+      <h3>🔑 ፓስወርድ ቀይር</h3>
+      <p class="sub">የአሁኑን ፓስወርድ አረጋግጠው አዲስ ፓስወርድ ያስገቡ።</p>
+      <div class="field">
+        <label>የአሁኑ ፓስወርድ</label>
+        <input type="password" id="cp-current" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>አዲስ ፓስወርድ</label>
+        <input type="password" id="cp-new" placeholder="ቢያንስ 4 ፊደል/ቁጥር" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>አዲስ ፓስወርድ ድገም</label>
+        <input type="password" id="cp-new2" autocomplete="off">
+      </div>
+      <div class="error-msg" id="cp-error"></div>
+      <div class="modal-actions">
+        <button type="button" class="ghost small" id="btn-cp-cancel">ይቅር</button>
+        <button type="button" class="primary small" id="btn-cp-submit">ቀይር</button>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -647,6 +699,55 @@ document.getElementById('btn-logout').addEventListener('click', ()=>{
   document.getElementById('app-screen').classList.add('hidden');
   document.getElementById('auth-screen').classList.remove('hidden');
   document.getElementById('login-phone').value=''; document.getElementById('login-pass').value='';
+});
+
+// ---- Change password ----
+function openChangePass(){
+  document.getElementById('cp-current').value = '';
+  document.getElementById('cp-new').value = '';
+  document.getElementById('cp-new2').value = '';
+  document.getElementById('cp-error').style.display = 'none';
+  document.getElementById('changepass-overlay').classList.remove('hidden');
+}
+function closeChangePass(){
+  document.getElementById('changepass-overlay').classList.add('hidden');
+}
+function showCpError(msg){
+  const el = document.getElementById('cp-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+document.getElementById('btn-open-changepass').addEventListener('click', openChangePass);
+document.getElementById('btn-admin-changepass').addEventListener('click', openChangePass);
+document.getElementById('btn-cp-cancel').addEventListener('click', closeChangePass);
+document.getElementById('btn-cp-submit').addEventListener('click', async ()=>{
+  showCpError('');
+  document.getElementById('cp-error').style.display = 'none';
+  const current = document.getElementById('cp-current').value;
+  const next = document.getElementById('cp-new').value;
+  const next2 = document.getElementById('cp-new2').value;
+  if(!current){ showCpError('የአሁኑን ፓስወርድ ያስገቡ።'); return; }
+  if(next.length < 4){ showCpError('አዲሱ ፓስወርድ ቢያንስ 4 ፊደል/ቁጥር ይያዝ።'); return; }
+  if(next !== next2){ showCpError('አዲሱ ፓስወርድ ግጥሚያ የለውም።'); return; }
+  const btn = document.getElementById('btn-cp-submit');
+  btn.disabled = true; btn.textContent = 'በማስቀመጥ ላይ...';
+  try{
+    const snap = await getDoc(doc(db,'users',currentUser.phone));
+    if(!snap.exists()){ showCpError('ተጠቃሚ አልተገኘም።'); btn.disabled=false; btn.textContent='ቀይር'; return; }
+    const user = snap.data();
+    const currentHash = await sha256(current);
+    if(currentHash !== user.passwordHash){ showCpError('የአሁኑ ፓስወርድ ትክክል አይደለም።'); btn.disabled=false; btn.textContent='ቀይር'; return; }
+    const newHash = await sha256(next);
+    await setDoc(doc(db,'users',currentUser.phone), { passwordHash: newHash }, { merge: true });
+    const el = document.getElementById('cp-error');
+    el.style.color = 'var(--green)';
+    el.textContent = 'ፓስወርድዎ ተቀይሯል።';
+    el.style.display = 'block';
+    setTimeout(()=>{ el.style.color = 'var(--red)'; closeChangePass(); }, 1200);
+  }catch(e){
+    console.error(e);
+    showCpError('ማስቀመጥ አልተቻለም፣ እንደገና ይሞክሩ።');
+  }
+  btn.disabled = false; btn.textContent = 'ቀይር';
 });
 
 function enterApp(){
@@ -1113,4 +1214,4 @@ document.getElementById('users-list').addEventListener('click', async (e)=>{
 });
 </script>
 </body>
-</html>
+        </html>
