@@ -622,6 +622,10 @@ function escapeAttr(str){
 }
 function round(n){ return Math.round((Number(n)||0)*100)/100; }
 function money(n){ return round(n).toLocaleString('en-US'); }
+function parseNum(val){
+  if(!val) return 0;
+  return Number(String(val).replace(/,/g, '')) || 0;
+}
 function isValidPhone(p){ return /^\d{10}$/.test(p); }
 function genCode(){ return String(Math.floor(100000 + Math.random()*900000)); }
 
@@ -1168,6 +1172,7 @@ document.getElementById('btn-save').addEventListener('click', async ()=>{
     expense: document.getElementById('f-expense').value || 0,
     profit: document.getElementById('r-profit').textContent,
     company: document.getElementById('r-company').textContent,
+    shareAmt: document.getElementById('r-share-amt').textContent,
     warrantyCount: warrantyImages.length,
     receiptCount: receiptImages.length,
     text,
@@ -1219,8 +1224,8 @@ function visibleReports(){
 function renderDashboard(){
   const items = visibleReports();
   const income = items.reduce((s,r)=>s + (Number(r.income)||0), 0);
-  const profit = items.reduce((s,r)=>s + (Number((r.profit+'').replace(/,/g,''))||0), 0);
-  const company = items.reduce((s,r)=>s + (Number((r.company+'').replace(/,/g,''))||0), 0);
+  const profit = items.reduce((s,r)=>s + parseNum(r.profit), 0);
+  const company = items.reduce((s,r)=>s + parseNum(r.company), 0);
   document.getElementById('d-count').textContent = items.length;
   document.getElementById('d-income').textContent = money(income);
   document.getElementById('d-profit').textContent = money(profit);
@@ -1229,14 +1234,23 @@ function renderDashboard(){
 document.getElementById('f-filter-worker').addEventListener('change', ()=>{renderDashboard(); renderHistory();});
 document.getElementById('f-filter-date').addEventListener('change', ()=>{renderDashboard(); renderHistory();});
 
-// ---- Monthly Excel Report ----
+// ---- Monthly Excel Report (UPDATED WITH WORKER SHARE, COMPANY AMOUNT & TOTAL SUM) ----
 function buildMonthlyRows(monthStr){
   const map = {};
   allReports.filter(r=>(r.date||'').startsWith(monthStr)).forEach(r=>{
     const key = r.workerPhone || r.workerName;
-    if(!map[key]) map[key] = { name: r.workerName || '', phone: r.workerPhone || '', address: '', income: 0, expense: 0 };
-    map[key].income += Number(r.income) || 0;
-    map[key].expense += Number(r.expense) || 0;
+    if(!map[key]) map[key] = { name: r.workerName || '', phone: r.workerPhone || '', address: '', income: 0, expense: 0, company: 0, workerShare: 0 };
+    
+    const inc = Number(r.income) || 0;
+    const exp = Number(r.expense) || 0;
+    const prof = parseNum(r.profit) || (inc - exp);
+    const comp = r.company !== undefined ? parseNum(r.company) : prof;
+    const wShare = r.shareAmt !== undefined ? parseNum(r.shareAmt) : (prof - comp);
+
+    map[key].income += inc;
+    map[key].expense += exp;
+    map[key].company += comp;
+    map[key].workerShare += wShare;
   });
   Object.values(map).forEach(row=>{
     const u = allUsers.find(u=>u.id === row.phone);
@@ -1244,12 +1258,28 @@ function buildMonthlyRows(monthStr){
   });
   return Object.values(map).sort((a,b)=> a.name.localeCompare(b.name));
 }
+
 function monthlyReportBlob(monthStr){
   const rows = buildMonthlyRows(monthStr);
-  const header = ['ስም','ስልክ','አድራሻ','ጠቅላላ ገቢ','ጠቅላላ ወጪ','ጠቅላላ ትርፍ'];
-  const data = [header, ...rows.map(r=>[r.name, r.phone, r.address, r.income, r.expense, r.income - r.expense])];
+  const header = ['ስም','ስልክ','አድራሻ','ጠቅላላ ገቢ','ጠቅላላ ወጪ','ጠቅላላ ትርፍ','ለድርጅቱ የገባ ጠቅላላ ገቢ','ለሠራተኛ የገባ ጠቅላላ ገቢ'];
+  
+  let totInc = 0, totExp = 0, totProf = 0, totComp = 0, totWorker = 0;
+  
+  const dataRows = rows.map(r => {
+    const profit = r.income - r.expense;
+    totInc += r.income;
+    totExp += r.expense;
+    totProf += profit;
+    totComp += r.company;
+    totWorker += r.workerShare;
+    return [r.name, r.phone, r.address, r.income, r.expense, profit, r.company, r.workerShare];
+  });
+
+  const totalRow = ['ጠቅላላ ድምር (Total)', '', '', totInc, totExp, totProf, totComp, totWorker];
+
+  const data = [header, ...dataRows, totalRow];
   const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{wch:20},{wch:14},{wch:20},{wch:14},{wch:14},{wch:14}];
+  ws['!cols'] = [{wch:20},{wch:14},{wch:20},{wch:14},{wch:14},{wch:14},{wch:24},{wch:24}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, monthStr);
   const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
@@ -1261,9 +1291,18 @@ function buildRangeRows(fromStr, toStr){
   const map = {};
   allReports.filter(r=> (r.date||'') >= fromStr && (r.date||'') <= toStr).forEach(r=>{
     const key = r.workerPhone || r.workerName;
-    if(!map[key]) map[key] = { name: r.workerName || '', phone: r.workerPhone || '', address: '', income: 0, expense: 0 };
-    map[key].income += Number(r.income) || 0;
-    map[key].expense += Number(r.expense) || 0;
+    if(!map[key]) map[key] = { name: r.workerName || '', phone: r.workerPhone || '', address: '', income: 0, expense: 0, company: 0, workerShare: 0 };
+    
+    const inc = Number(r.income) || 0;
+    const exp = Number(r.expense) || 0;
+    const prof = parseNum(r.profit) || (inc - exp);
+    const comp = r.company !== undefined ? parseNum(r.company) : prof;
+    const wShare = r.shareAmt !== undefined ? parseNum(r.shareAmt) : (prof - comp);
+
+    map[key].income += inc;
+    map[key].expense += exp;
+    map[key].company += comp;
+    map[key].workerShare += wShare;
   });
   Object.values(map).forEach(row=>{
     const u = allUsers.find(u=>u.id === row.phone);
@@ -1271,12 +1310,28 @@ function buildRangeRows(fromStr, toStr){
   });
   return Object.values(map).sort((a,b)=> a.name.localeCompare(b.name));
 }
+
 function rangeReportBlob(fromStr, toStr){
   const rows = buildRangeRows(fromStr, toStr);
-  const header = ['ስም','ስልክ','አድራሻ','ጠቅላላ ገቢ','ጠቅላላ ወጪ','ጠቅላላ ትርፍ'];
-  const data = [header, ...rows.map(r=>[r.name, r.phone, r.address, r.income, r.expense, r.income - r.expense])];
+  const header = ['ስም','ስልክ','አድራሻ','ጠቅላላ ገቢ','ጠቅላላ ወጪ','ጠቅላላ ትርፍ','ለድርጅቱ የገባ ጠቅላላ ገቢ','ለሠራተኛ የገባ ጠቅላላ ገቢ'];
+  
+  let totInc = 0, totExp = 0, totProf = 0, totComp = 0, totWorker = 0;
+
+  const dataRows = rows.map(r => {
+    const profit = r.income - r.expense;
+    totInc += r.income;
+    totExp += r.expense;
+    totProf += profit;
+    totComp += r.company;
+    totWorker += r.workerShare;
+    return [r.name, r.phone, r.address, r.income, r.expense, profit, r.company, r.workerShare];
+  });
+
+  const totalRow = ['ጠቅላላ ድምር (Total)', '', '', totInc, totExp, totProf, totComp, totWorker];
+
+  const data = [header, ...dataRows, totalRow];
   const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{wch:20},{wch:14},{wch:20},{wch:14},{wch:14},{wch:14}];
+  ws['!cols'] = [{wch:20},{wch:14},{wch:20},{wch:14},{wch:14},{wch:14},{wch:24},{wch:24}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, `${fromStr}_${toStr}`);
   const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
