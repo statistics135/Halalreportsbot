@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="am">
 <head>
 <meta charset="UTF-8">
@@ -581,7 +581,7 @@ function toEthiopianDate(isoDateStr){
   const monthName = ETH_MONTHS[eth.month - 1] || '';
   return `${eth.day} ${monthName} ${eth.year} ዓ.ም`;
 }
-// Ethiopian-style clock (12-hour, offset 6 from standard time, with period label)
+// Ethiopian-style clock
 function toEthiopianTime(date){
   let h = date.getHours();
   const min = String(date.getMinutes()).padStart(2,'0');
@@ -597,18 +597,19 @@ function toEthiopianTime(date){
 
 function todayISO(){ return new Date().toISOString().slice(0,10); }
 
-let currentUser = null; // {name, phone, isAdmin}
+let currentUser = null; 
 let allReports = [];
 let allUsers = [];
-let pendingReg = null; // {name, phone, passwordHash, isAdmin, code}
+let pendingReg = null; 
 let lastSavedText = null;
 let isSaving = false;
 let reportsUnsub = null;
 let usersUnsub = null;
 let reportsLoadedOnce = false;
 let usersLoadedOnce = false;
+let monthlyAutoCheckDone = false;
 
-// ---- helpers ----
+// ---- Helpers ----
 async function sha256(text){
   const enc = new TextEncoder().encode(text);
   const buf = await crypto.subtle.digest('SHA-256', enc);
@@ -624,7 +625,7 @@ function money(n){ return round(n).toLocaleString('en-US'); }
 function isValidPhone(p){ return /^\d{10}$/.test(p); }
 function genCode(){ return String(Math.floor(100000 + Math.random()*900000)); }
 
-// Auto-clear "0" placeholder value when a number field is focused, restore if left empty
+// Auto-clear "0" placeholder
 document.querySelectorAll('input[type="number"]').forEach(inp=>{
   inp.addEventListener('focus', ()=>{
     if(inp.value === '0'){ inp.value = ''; }
@@ -635,7 +636,7 @@ document.querySelectorAll('input[type="number"]').forEach(inp=>{
   });
 });
 
-// ---- Telegram ----
+// ---- Telegram API ----
 async function sendTelegramText(text){
   try{
     await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -677,7 +678,7 @@ async function sendTelegramDocument(blob, filename, caption){
   }catch(e){ console.error('Telegram document error', e); }
 }
 
-// ---- Auth tabs ----
+// ---- Auth Tabs ----
 document.querySelectorAll('.auth-tab').forEach(tab=>{
   tab.addEventListener('click', ()=>{
     document.querySelectorAll('.auth-tab').forEach(t=>t.classList.remove('active'));
@@ -712,11 +713,11 @@ document.getElementById('btn-login').addEventListener('click', async ()=>{
     enterApp();
   }catch(e){
     console.error(e);
-    showAuthError('ግንኙነት ላይ ችግር ተፈጥሯል፣ እንደገና ይሞክሩ። (Firestore ገና ካልነቁት ሊሆን ይችላል)');
+    showAuthError('ግንኙነት ላይ ችግር ተፈጥሯል፣ እንደገና ይሞክሩ።');
   }
 });
 
-// ---- Register step 1: validate + send code ----
+// ---- Register Step 1 ----
 document.getElementById('btn-reg-step1').addEventListener('click', async ()=>{
   hideAuthError();
   const name = document.getElementById('reg-name').value.trim();
@@ -750,7 +751,7 @@ document.getElementById('btn-reg-step1').addEventListener('click', async ()=>{
     document.getElementById('reg-step2').classList.remove('hidden');
   }catch(e){
     console.error(e);
-    showAuthError('ግንኙነት ላይ ችግር ተፈጥሯል፣ Firestore መንቃቱን ያረጋግጡ።');
+    showAuthError('ግንኙነት ላይ ችግር ተፈጥሯል።');
   }
   btn.disabled = false; btn.textContent = 'ቀጣይ — ኮድ ላክ';
 });
@@ -802,7 +803,7 @@ document.getElementById('btn-logout').addEventListener('click', ()=>{
   document.getElementById('login-phone').value=''; document.getElementById('login-pass').value='';
 });
 
-// ---- Change password ----
+// ---- Change Password ----
 function openChangePass(){
   document.getElementById('cp-current').value = '';
   document.getElementById('cp-new').value = '';
@@ -821,7 +822,6 @@ document.getElementById('btn-open-changepass').addEventListener('click', openCha
 document.getElementById('btn-cp-cancel').addEventListener('click', closeChangePass);
 document.getElementById('btn-cp-submit').addEventListener('click', async ()=>{
   showCpError('');
-  document.getElementById('cp-error').style.display = 'none';
   const current = document.getElementById('cp-current').value;
   const next = document.getElementById('cp-new').value;
   const next2 = document.getElementById('cp-new2').value;
@@ -960,16 +960,6 @@ function updateCounts(){
 }
 document.getElementById('f-jobcount').addEventListener('input', renderJobs);
 
-// ---- Number inputs: auto-clear the default 0 when typing starts ----
-document.querySelectorAll('input[type="number"]').forEach(inp=>{
-  inp.addEventListener('focus', ()=>{
-    if(inp.value === '0') inp.value = '';
-  });
-  inp.addEventListener('blur', ()=>{
-    if(inp.value === '') inp.value = '0';
-  });
-});
-
 // ---- Finance ----
 function updateFinance(){
   const income = Number(document.getElementById('f-income').value)||0;
@@ -986,7 +976,7 @@ function updateFinance(){
   document.getElementById(id).addEventListener('input', updateFinance);
 });
 
-// ---- Photo upload ----
+// ---- Photo Upload ----
 let warrantyImages = [];
 let receiptImages = [];
 function compressImage(file){
@@ -1056,7 +1046,7 @@ document.getElementById('f-receipt-file').addEventListener('change', async (e)=>
   e.target.value = '';
 });
 
-// ---- Report text ----
+// ---- Report Text Builder ----
 function buildReportText(){
   const worker = currentUser ? currentUser.name : '—';
   const date = document.getElementById('f-date').value;
@@ -1121,6 +1111,7 @@ ${receipt} — የባንክ ደረሰኝ`;
 document.getElementById('btn-generate').addEventListener('click', ()=>{
   document.getElementById('output').textContent = buildReportText();
 });
+
 function copyText(text){
   navigator.clipboard.writeText(text).then(()=>{
     const msg = document.getElementById('copy-msg');
@@ -1146,7 +1137,7 @@ function resetFormDraft(){
 }
 document.getElementById('btn-clear').addEventListener('click', resetFormDraft);
 
-// ---- Auto-clear unsaved draft at local midnight (ለሊት 6 ሰዓት) ----
+// Auto-clear unsaved draft at local midnight
 let currentFormDay = new Date().toDateString();
 setInterval(()=>{
   const nowDay = new Date().toDateString();
@@ -1156,9 +1147,9 @@ setInterval(()=>{
   }
 }, 60000);
 
-// ---- Save report to Firestore + Telegram ----
+// ---- Save report ----
 document.getElementById('btn-save').addEventListener('click', async ()=>{
-  if(isSaving) return; // blocks rapid re-clicks / slow-network double taps
+  if(isSaving) return; 
 
   const text = buildReportText();
 
@@ -1182,9 +1173,12 @@ document.getElementById('btn-save').addEventListener('click', async ()=>{
     text,
     createdAt: Date.now()
   };
+
   const btn = document.getElementById('btn-save');
   isSaving = true;
-  btn.disabled = true; btn.textContent = 'በመላክ ላይ...';
+  btn.disabled = true; 
+  btn.textContent = 'በመላክ ላይ...';
+
   try{
     const newDoc = doc(collection(db,'reports'));
     await setDoc(newDoc, entry);
@@ -1198,11 +1192,13 @@ document.getElementById('btn-save').addEventListener('click', async ()=>{
     console.error(e);
     alert('ሪፖርት ማስቀመጥ አልተቻለም፣ ግንኙነትዎን ያረጋግጡ።');
   }
+
   isSaving = false;
-  btn.disabled = false; btn.textContent = 'ሪፖርት ላክ እና አስቀምጥ';
+  btn.disabled = false; 
+  btn.textContent = 'ሪፖርት ላክ እና አስቀምጥ';
 });
 
-// ---- Admin dashboard ----
+// ---- Admin Dashboard ----
 function populateWorkerFilter(){
   const sel = document.getElementById('f-filter-worker');
   const names = Array.from(new Set(allReports.map(r=>r.workerName).filter(Boolean))).sort();
@@ -1233,7 +1229,7 @@ function renderDashboard(){
 document.getElementById('f-filter-worker').addEventListener('change', ()=>{renderDashboard(); renderHistory();});
 document.getElementById('f-filter-date').addEventListener('change', ()=>{renderDashboard(); renderHistory();});
 
-// ---- Monthly Excel report (name, phone, address, total income, total expense per worker) ----
+// ---- Monthly Excel Report ----
 function buildMonthlyRows(monthStr){
   const map = {};
   allReports.filter(r=>(r.date||'').startsWith(monthStr)).forEach(r=>{
@@ -1345,11 +1341,10 @@ if(btnMrSend) btnMrSend.addEventListener('click', async ()=>{
   showMrMsg('ወደ ቴሌግራም ተልኳል።', false);
 });
 
-// ---- Auto-send previous month's report, then delete that month's data ----
-let monthlyAutoCheckDone = false;
+// ---- Auto Cleanup ----
 function prevMonthStr(monthStr){
   const [y,m] = monthStr.split('-').map(Number);
-  const d = new Date(y, m - 2, 1); // m is 1-based; go to prev month
+  const d = new Date(y, m - 2, 1);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 }
 function daysInMonth(monthStr){
@@ -1374,14 +1369,12 @@ async function checkAutoMonthlyReport(){
     const sentMonths = Array.isArray(metaData.sentMonths) ? metaData.sentMonths : [];
     const warnedMonths = Array.isArray(metaData.warnedMonths) ? metaData.warnedMonths : [];
 
-    // 1) Warn 1-2 days before the current month ends
     const remainingDays = daysInMonth(currentMonth) - Number(todayStr.slice(8,10));
     if(remainingDays >= 0 && remainingDays <= 2 && !warnedMonths.includes(currentMonth)){
-      await sendTelegramText(`⚠️ ማስታወቂያ — የ${currentMonth} ወር በ${remainingDays===0?'ዛሬ':(remainingDays+' ቀን ውስጥ')} ይጠናቀቃል። ወሩ እንደተጠናቀቀ ወርሃዊ ሪፖርት ወደዚህ ቦት ይላካል፣ ከዚያ በኋላ የዚህ ወር ውሂብ (ሪፖርት) ከ database ላይ ራሱ በራሱ ይጠፋል። ካስፈለገዎት አሁኑኑ ከአድሚን ገጽ ላይ ውርድ አድርገው ያስቀምጡ።`);
+      await sendTelegramText(`⚠️ ማስታወቂያ — የ${currentMonth} ወር በ${remainingDays===0?'ዛሬ':(remainingDays+' ቀን ውስጥ')} ይጠናቀቃል። ወሩ እንደተጠናቀቀ ወርሃዊ ሪፖርት ወደዚህ ቦት ይላካል፣ ከዚያ በኋላ የዚህ ወር ውሂብ ከ database ላይ ራሱ በራሱ ይጠፋል።`);
       await setDoc(metaRef, { warnedMonths: [...warnedMonths, currentMonth] }, { merge: true });
     }
 
-    // 2) Once we've rolled into a new month, send + delete the completed previous month
     const targetMonth = prevMonthStr(currentMonth);
     if(!sentMonths.includes(targetMonth)){
       const { blob, rows } = monthlyReportBlob(targetMonth);
@@ -1393,10 +1386,11 @@ async function checkAutoMonthlyReport(){
     }
   }catch(e){
     console.error('Auto monthly report error', e);
-    monthlyAutoCheckDone = false; // allow retry on next load if it failed
+    monthlyAutoCheckDone = false;
   }
 }
 
+// ---- Render History ----
 function renderHistory(){
   const box = document.getElementById('history');
   const items = visibleReports().slice().sort((a,b)=> b.date.localeCompare(a.date) || (b.createdAt||0)-(a.createdAt||0));
@@ -1407,7 +1401,6 @@ function renderHistory(){
   const today = todayISO();
   const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
 
-  // group by date
   const groups = {};
   const order = [];
   items.forEach(r=>{
@@ -1463,7 +1456,7 @@ document.getElementById('history').addEventListener('click', async (e)=>{
   }
 });
 
-// ---- User management (admin only) ----
+// ---- User Management ----
 function renderUsersList(){
   const box = document.getElementById('users-list');
   if(allUsers.length === 0){ box.innerHTML = '<div class="empty">ምንም የተመዘገበ ተጠቃሚ የለም።</div>'; return; }
@@ -1481,7 +1474,7 @@ function renderUsersList(){
 document.getElementById('users-list').addEventListener('click', async (e)=>{
   const btn = e.target.closest('[data-rmuser]');
   if(!btn) return;
-  const ok = confirm(`"${btn.dataset.uname}" የተባለውን ተጠቃሚ ማጥፋት ይፈልጋሉ? ይህ ሰው ከዚያ በኋላ መግባት አይችልም። (ያስቀመጣቸው ሪፖርቶች አይጠፉም)`);
+  const ok = confirm(`"${btn.dataset.uname}" የተባለውን ተጠቃሚ ማጥፋት ይፈልጋሉ?`);
   if(!ok) return;
   try{ await deleteDoc(doc(db,'users',btn.dataset.rmuser)); }catch(err){ console.error(err); }
 });
