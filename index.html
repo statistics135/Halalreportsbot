@@ -552,8 +552,24 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const ADMIN_SECRET = 'FUAD-ADMIN-2026';
-const TELEGRAM_BOT_TOKEN = '8816155815:AAGaxgc9bhIGjqLAxNTMvvFZq7StXRZ6Pus';
-const TELEGRAM_CHAT_ID = '6853753240';
+// የቴሌግራም መልእክት በ Serverless API ለመላክ
+async function sendTelegramMessage(text) {
+  try {
+    const response = await fetch('/api/send-otp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text: text,
+      }),
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Error sending telegram message:', error);
+  }
+}
+
 const DAYS_AM = ['እሁድ','ሰኞ','ማክሰኞ','ረቡዕ','ሐሙስ','አርብ','ቅዳሜ'];
 const ETH_MONTHS = ['መስከረም','ጥቅምት','ኅዳር','ታኅሳስ','ጥር','የካቲት','መጋቢት','ሚያዝያ','ግንቦት','ሰኔ','ሐምሌ','ነሐሴ','ጳጉሜን'];
 
