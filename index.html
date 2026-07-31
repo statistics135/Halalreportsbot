@@ -389,15 +389,8 @@
     </div>
 
     <div id="admin-section" class="hidden">
-      <div class="section-title"><span class="num">09</span> 🔑 የአድሚን ፓስወርድ</div>
+      <div class="section-title"><span class="num">09</span> 📊 ወርሃዊ ሪፖርት (Excel)</div>
       <div class="card">
-        <p class="sub" style="margin:0 0 12px;">የገባችሁበትን ፓስወርድ ከዚህ መቀየር ትችላላችሁ።</p>
-        <button type="button" class="ghost" id="btn-admin-changepass">ፓስወርድ ቀይር</button>
-      </div>
-
-      <div class="section-title"><span class="num">10</span> 📊 ወርሃዊ ሪፖርት (Excel)</div>
-      <div class="card">
-        <p class="sub" style="margin:0 0 12px;">በወር የተጠቃለለ ስም, ስልክ, አድራሻ, ጠቅላላ ገቢ, ጠቅላላ ወጪ ፋይል ማውረድ ወይም ወደ ቴሌግራም መላክ ይችላሉ። በራስ-ሰር ወርሃዊ ደግሞ ወር በተጠናቀቀ ቁጥር ወደ ቴሌግራም ይላካል።</p>
         <div class="field">
           <label>ወር ይምረጡ</label>
           <input type="month" id="mr-month">
@@ -409,7 +402,7 @@
         <div class="error-msg" id="mr-msg"></div>
       </div>
 
-      <div class="section-title"><span class="num">11</span> 🗂️ የስራ አስኪያጅ ማጠቃለያ (እውነተኛ-ጊዜ)</div>
+      <div class="section-title"><span class="num">10</span> 🗂️ የስራ አስኪያጅ ማጠቃለያ (እውነተኛ-ጊዜ)</div>
       <div class="card">
         <div class="grid2">
           <div class="field">
@@ -429,13 +422,13 @@
         </div>
       </div>
 
-      <div class="section-title"><span class="num">12</span> 👥 የተጠቃሚዎች አስተዳደር</div>
+      <div class="section-title"><span class="num">11</span> 👥 የተጠቃሚዎች አስተዳደር</div>
       <div class="card">
         <div class="history" id="users-list"></div>
       </div>
     </div>
 
-    <div class="section-title"><span class="num">13</span> <span id="history-title">የኔ ያለፉ ሪፖርቶች</span></div>
+    <div class="section-title"><span class="num">12</span> <span id="history-title">የኔ ያለፉ ሪፖርቶች</span></div>
     <div class="history" id="history"></div>
 
   </div>
@@ -752,7 +745,6 @@ function showCpError(msg){
   el.textContent = msg; el.style.display = 'block';
 }
 document.getElementById('btn-open-changepass').addEventListener('click', openChangePass);
-document.getElementById('btn-admin-changepass').addEventListener('click', openChangePass);
 document.getElementById('btn-cp-cancel').addEventListener('click', closeChangePass);
 document.getElementById('btn-cp-submit').addEventListener('click', async ()=>{
   showCpError('');
@@ -1181,10 +1173,10 @@ function buildMonthlyRows(monthStr){
 }
 function monthlyReportBlob(monthStr){
   const rows = buildMonthlyRows(monthStr);
-  const header = ['ስም','ስልክ','አድራሻ','ጠቅላላ ገቢ','ጠቅላላ ወጪ'];
-  const data = [header, ...rows.map(r=>[r.name, r.phone, r.address, r.income, r.expense])];
+  const header = ['ስም','ስልክ','አድራሻ','ጠቅላላ ገቢ','ጠቅላላ ወጪ','ጠቅላላ ትርፍ'];
+  const data = [header, ...rows.map(r=>[r.name, r.phone, r.address, r.income, r.expense, r.income - r.expense])];
   const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{wch:20},{wch:14},{wch:20},{wch:14},{wch:14}];
+  ws['!cols'] = [{wch:20},{wch:14},{wch:20},{wch:14},{wch:14},{wch:14}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, monthStr);
   const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
@@ -1344,4 +1336,4 @@ document.getElementById('users-list').addEventListener('click', async (e)=>{
 });
 </script>
 </body>
-                                                                               </html>
+  </html>
