@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>የሀላል ዕለታዊ የባለሙያ ሪፖርት</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -221,6 +222,10 @@
             <input type="tel" id="reg-phone" class="mono" maxlength="10" placeholder="0912345678">
           </div>
           <div class="field">
+            <label>🏠 አድራሻ</label>
+            <input type="text" id="reg-address" placeholder="ለምሳሌ፦ ቦሌ, አዲስ አበባ">
+          </div>
+          <div class="field">
             <label>የይለፍ ቃል</label>
             <input type="password" id="reg-pass" placeholder="ቢያንስ 4 ፊደል/ቁጥር">
           </div>
@@ -390,7 +395,21 @@
         <button type="button" class="ghost" id="btn-admin-changepass">ፓስወርድ ቀይር</button>
       </div>
 
-      <div class="section-title"><span class="num">10</span> 🗂️ የስራ አስኪያጅ ማጠቃለያ (እውነተኛ-ጊዜ)</div>
+      <div class="section-title"><span class="num">10</span> 📊 ወርሃዊ ሪፖርት (Excel)</div>
+      <div class="card">
+        <p class="sub" style="margin:0 0 12px;">በወር የተጠቃለለ ስም, ስልክ, አድራሻ, ጠቅላላ ገቢ, ጠቅላላ ወጪ ፋይል ማውረድ ወይም ወደ ቴሌግራም መላክ ይችላሉ። በራስ-ሰር ወርሃዊ ደግሞ ወር በተጠናቀቀ ቁጥር ወደ ቴሌግራም ይላካል።</p>
+        <div class="field">
+          <label>ወር ይምረጡ</label>
+          <input type="month" id="mr-month">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="btn-mr-download">⬇️ Excel አውርድ</button>
+          <button type="button" class="ghost" id="btn-mr-send">📨 ወደ ቴሌግራም ላክ</button>
+        </div>
+        <div class="error-msg" id="mr-msg"></div>
+      </div>
+
+      <div class="section-title"><span class="num">11</span> 🗂️ የስራ አስኪያጅ ማጠቃለያ (እውነተኛ-ጊዜ)</div>
       <div class="card">
         <div class="grid2">
           <div class="field">
@@ -410,13 +429,13 @@
         </div>
       </div>
 
-      <div class="section-title"><span class="num">11</span> 👥 የተጠቃሚዎች አስተዳደር</div>
+      <div class="section-title"><span class="num">12</span> 👥 የተጠቃሚዎች አስተዳደር</div>
       <div class="card">
         <div class="history" id="users-list"></div>
       </div>
     </div>
 
-    <div class="section-title"><span class="num">12</span> <span id="history-title">የኔ ያለፉ ሪፖርቶች</span></div>
+    <div class="section-title"><span class="num">13</span> <span id="history-title">የኔ ያለፉ ሪፖርቶች</span></div>
     <div class="history" id="history"></div>
 
   </div>
@@ -520,6 +539,8 @@ let lastSavedText = null;
 let isSaving = false;
 let reportsUnsub = null;
 let usersUnsub = null;
+let reportsLoadedOnce = false;
+let usersLoadedOnce = false;
 
 // ---- helpers ----
 async function sha256(text){
@@ -580,6 +601,15 @@ async function sendTelegramReportPhotos(workerName, date){
   for(const img of warrantyImages){ await sendTelegramPhoto(img, `📎 ዋራንቲ ፎቶ — ${workerName} — ${date}`); }
   for(const img of receiptImages){ await sendTelegramPhoto(img, `📎 ደረሰኝ ፎቶ — ${workerName} — ${date}`); }
 }
+async function sendTelegramDocument(blob, filename, caption){
+  try{
+    const formData = new FormData();
+    formData.append('chat_id', TELEGRAM_CHAT_ID);
+    formData.append('document', blob, filename);
+    if(caption) formData.append('caption', caption);
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, { method:'POST', body: formData });
+  }catch(e){ console.error('Telegram document error', e); }
+}
 
 // ---- Auth tabs ----
 document.querySelectorAll('.auth-tab').forEach(tab=>{
@@ -625,12 +655,14 @@ document.getElementById('btn-reg-step1').addEventListener('click', async ()=>{
   hideAuthError();
   const name = document.getElementById('reg-name').value.trim();
   const phone = document.getElementById('reg-phone').value.trim();
+  const address = document.getElementById('reg-address').value.trim();
   const pass = document.getElementById('reg-pass').value;
   const pass2 = document.getElementById('reg-pass2').value;
   const adminCode = document.getElementById('reg-admin-code').value;
 
   if(!name){ showAuthError('ስም ያስገቡ።'); return; }
   if(!isValidPhone(phone)){ showAuthError('ስልክ ቁጥር በትክክል 10 ዲጂት መሆን አለበት (ለምሳሌ 0912345678)።'); return; }
+  if(!address){ showAuthError('አድራሻ ያስገቡ።'); return; }
   if(pass.length < 4){ showAuthError('የይለፍ ቃል ቢያንስ 4 ፊደል/ቁጥር ይያዝ።'); return; }
   if(pass !== pass2){ showAuthError('የይለፍ ቃል ግጥሚያ የለውም።'); return; }
 
@@ -646,7 +678,7 @@ document.getElementById('btn-reg-step1').addEventListener('click', async ()=>{
     const passwordHash = await sha256(pass);
     const isAdmin = adminCode.trim() === ADMIN_SECRET;
     const code = genCode();
-    pendingReg = { name, phone, passwordHash, isAdmin, code };
+    pendingReg = { name, phone, address, passwordHash, isAdmin, code };
     await sendTelegramText(`🆕 አዲስ የመዳረሻ ጥያቄ\n👤 ስም: ${name}\n📱 ስልክ: ${phone}\n🔑 ኮድ: ${code}${isAdmin ? '\n⚠️ አድሚን ለመሆን ጠይቋል' : ''}`);
     document.getElementById('reg-step1').classList.add('hidden');
     document.getElementById('reg-step2').classList.remove('hidden');
@@ -678,7 +710,7 @@ document.getElementById('btn-reg-verify').addEventListener('click', async ()=>{
   if(entered !== pendingReg.code){ showAuthError('ኮዱ ትክክል አይደለም።'); return; }
   try{
     await setDoc(doc(db,'users',pendingReg.phone), {
-      name: pendingReg.name, phone: pendingReg.phone,
+      name: pendingReg.name, phone: pendingReg.phone, address: pendingReg.address || '',
       passwordHash: pendingReg.passwordHash, isAdmin: pendingReg.isAdmin,
       createdAt: Date.now()
     });
@@ -696,6 +728,9 @@ document.getElementById('btn-logout').addEventListener('click', ()=>{
   currentUser = null;
   if(reportsUnsub){ reportsUnsub(); reportsUnsub = null; }
   if(usersUnsub){ usersUnsub(); usersUnsub = null; }
+  reportsLoadedOnce = false;
+  usersLoadedOnce = false;
+  monthlyAutoCheckDone = false;
   document.getElementById('app-screen').classList.add('hidden');
   document.getElementById('auth-screen').classList.remove('hidden');
   document.getElementById('login-phone').value=''; document.getElementById('login-pass').value='';
@@ -767,15 +802,19 @@ function enterApp(){
   reportsUnsub = onSnapshot(query(collection(db,'reports')), (snap)=>{
     allReports = [];
     snap.forEach(d=> allReports.push({id:d.id, ...d.data()}));
+    reportsLoadedOnce = true;
     if(currentUser.isAdmin){ populateWorkerFilter(); renderDashboard(); }
     renderHistory();
+    if(currentUser.isAdmin && reportsLoadedOnce && usersLoadedOnce) checkAutoMonthlyReport();
   }, (err)=>console.error('reports listener error', err));
 
   if(currentUser.isAdmin){
     usersUnsub = onSnapshot(query(collection(db,'users')), (snap)=>{
       allUsers = [];
       snap.forEach(d=> allUsers.push({id:d.id, ...d.data()}));
+      usersLoadedOnce = true;
       renderUsersList();
+      if(reportsLoadedOnce && usersLoadedOnce) checkAutoMonthlyReport();
     }, (err)=>console.error('users listener error', err));
   }
 }
@@ -1066,6 +1105,7 @@ document.getElementById('btn-save').addEventListener('click', async ()=>{
     day: document.getElementById('f-day').value,
     jobcount: document.getElementById('f-jobcount').value || 0,
     income: document.getElementById('f-income').value || 0,
+    expense: document.getElementById('f-expense').value || 0,
     profit: document.getElementById('r-profit').textContent,
     company: document.getElementById('r-company').textContent,
     warrantyCount: warrantyImages.length,
@@ -1123,6 +1163,96 @@ function renderDashboard(){
 }
 document.getElementById('f-filter-worker').addEventListener('change', ()=>{renderDashboard(); renderHistory();});
 document.getElementById('f-filter-date').addEventListener('change', ()=>{renderDashboard(); renderHistory();});
+
+// ---- Monthly Excel report (name, phone, address, total income, total expense per worker) ----
+function buildMonthlyRows(monthStr){
+  const map = {};
+  allReports.filter(r=>(r.date||'').startsWith(monthStr)).forEach(r=>{
+    const key = r.workerPhone || r.workerName;
+    if(!map[key]) map[key] = { name: r.workerName || '', phone: r.workerPhone || '', address: '', income: 0, expense: 0 };
+    map[key].income += Number(r.income) || 0;
+    map[key].expense += Number(r.expense) || 0;
+  });
+  Object.values(map).forEach(row=>{
+    const u = allUsers.find(u=>u.id === row.phone);
+    row.address = (u && u.address) ? u.address : '';
+  });
+  return Object.values(map).sort((a,b)=> a.name.localeCompare(b.name));
+}
+function monthlyReportBlob(monthStr){
+  const rows = buildMonthlyRows(monthStr);
+  const header = ['ስም','ስልክ','አድራሻ','ጠቅላላ ገቢ','ጠቅላላ ወጪ'];
+  const data = [header, ...rows.map(r=>[r.name, r.phone, r.address, r.income, r.expense])];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:20},{wch:14},{wch:20},{wch:14},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, monthStr);
+  const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+  return { blob: new Blob([out], {type:'application/octet-stream'}), rows };
+}
+function monthFilename(monthStr){ return `ወርሃዊ-ሪፖርት-${monthStr}.xlsx`; }
+
+function showMrMsg(text, isError){
+  const el = document.getElementById('mr-msg');
+  el.style.color = isError ? 'var(--red)' : 'var(--green)';
+  el.textContent = text; el.style.display = 'block';
+  setTimeout(()=>{ el.style.display='none'; }, 3500);
+}
+
+const mrMonthInput = document.getElementById('mr-month');
+if(mrMonthInput) mrMonthInput.value = todayISO().slice(0,7);
+
+const btnMrDownload = document.getElementById('btn-mr-download');
+if(btnMrDownload) btnMrDownload.addEventListener('click', ()=>{
+  const monthStr = mrMonthInput.value;
+  if(!monthStr){ showMrMsg('ወር ይምረጡ።', true); return; }
+  const { blob, rows } = monthlyReportBlob(monthStr);
+  if(rows.length === 0){ showMrMsg('ለዚህ ወር ምንም ሪፖርት አልተገኘም።', true); return; }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = monthFilename(monthStr); a.click();
+  URL.revokeObjectURL(url);
+  showMrMsg('ወርዷል።', false);
+});
+
+const btnMrSend = document.getElementById('btn-mr-send');
+if(btnMrSend) btnMrSend.addEventListener('click', async ()=>{
+  const monthStr = mrMonthInput.value;
+  if(!monthStr){ showMrMsg('ወር ይምረጡ።', true); return; }
+  const { blob, rows } = monthlyReportBlob(monthStr);
+  if(rows.length === 0){ showMrMsg('ለዚህ ወር ምንም ሪፖርት አልተገኘም።', true); return; }
+  btnMrSend.disabled = true; btnMrSend.textContent = 'በመላክ ላይ...';
+  await sendTelegramDocument(blob, monthFilename(monthStr), `📊 ወርሃዊ ሪፖርት — ${monthStr}`);
+  btnMrSend.disabled = false; btnMrSend.textContent = '📨 ወደ ቴሌግራም ላክ';
+  showMrMsg('ወደ ቴሌግራም ተልኳል።', false);
+});
+
+// ---- Auto-send previous month's report once it's complete ----
+let monthlyAutoCheckDone = false;
+function prevMonthStr(monthStr){
+  const [y,m] = monthStr.split('-').map(Number);
+  const d = new Date(y, m - 2, 1); // m is 1-based; go to prev month
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+async function checkAutoMonthlyReport(){
+  if(monthlyAutoCheckDone || !currentUser || !currentUser.isAdmin) return;
+  monthlyAutoCheckDone = true;
+  try{
+    const targetMonth = prevMonthStr(todayISO().slice(0,7));
+    const metaRef = doc(db,'meta','monthlyReports');
+    const metaSnap = await getDoc(metaRef);
+    const sentMonths = (metaSnap.exists() && Array.isArray(metaSnap.data().sentMonths)) ? metaSnap.data().sentMonths : [];
+    if(sentMonths.includes(targetMonth)) return;
+    const { blob, rows } = monthlyReportBlob(targetMonth);
+    if(rows.length > 0){
+      await sendTelegramDocument(blob, monthFilename(targetMonth), `📊 ወርሃዊ ሪፖርት (ራስ-ሰር) — ${targetMonth}`);
+    }
+    await setDoc(metaRef, { sentMonths: [...sentMonths, targetMonth] }, { merge: true });
+  }catch(e){
+    console.error('Auto monthly report error', e);
+    monthlyAutoCheckDone = false; // allow retry on next load if it failed
+  }
+}
 
 function renderHistory(){
   const box = document.getElementById('history');
@@ -1214,4 +1344,4 @@ document.getElementById('users-list').addEventListener('click', async (e)=>{
 });
 </script>
 </body>
-        </html>
+                                                                               </html>
