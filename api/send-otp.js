@@ -3,11 +3,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { chat_id, text } = req.body;
+  const { text } = req.body;
   const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
 
-  if (!token) {
-    return res.status(500).json({ error: 'Bot token not configured' });
+  if (!token || !chatId) {
+    return res.status(500).json({ error: 'Bot token or Chat ID not configured' });
   }
 
   try {
@@ -15,7 +16,7 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: chat_id,
+        chat_id: chatId,
         text: text,
       }),
     });
