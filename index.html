@@ -17,6 +17,14 @@
     --text:#ECECE9; --text-2:#9AA3AB; --text-3:#63696F;
     --line:#2E343A; --line-strong:#3A4147;
   }
+  body.light-theme{
+    --bg:#F5F3EF; --panel:#FFFFFF; --card:#FBFAF7;
+    --amber:#B97600; --amber-dim:#F3E3C4;
+    --green:#1E8A4C; --green-dim:#DDF2E4;
+    --red:#C23F1D; --red-dim:#F7DCD2;
+    --text:#1B1F23; --text-2:#5B6570; --text-3:#8A929A;
+    --line:#E1DED6; --line-strong:#CFCBC0;
+  }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:'Noto Sans Ethiopic',sans-serif;line-height:1.6;}
   .mono{font-family:'JetBrains Mono',monospace;}
@@ -34,6 +42,7 @@
   }
   .plate h1{margin:0;font-size:19px;font-weight:700;}
   .plate p{margin:4px 0 0;font-size:12.5px;color:var(--text-2);}
+  .theme-toggle-btn{position:absolute;top:12px;right:12px;z-index:2;font-size:16px;}
 
   .session-bar{display:flex;justify-content:space-between;align-items:center;margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 16px;flex-wrap:wrap;gap:8px;}
   .session-bar .who{font-size:13px;}
@@ -182,6 +191,7 @@
 <div class="wrap">
 
   <div class="plate">
+    <button type="button" class="icon-btn theme-toggle-btn" id="theme-toggle" title="ገፅታ ቀይር (ነጭ/ጥቁር)">🌙</button>
     <h1>📋 የሀላል ዕለታዊ የባለሙያ ሪፖርት</h1>
     <p>ዕለታዊ የስራ፣ ገቢ እና ወጪ ማጠቃለያ — ለድርጅት ማስተላለፊያ</p>
   </div>
@@ -400,6 +410,21 @@
           <button type="button" class="ghost" id="btn-mr-send">📨 ወደ ቴሌግራም ላክ</button>
         </div>
         <div class="error-msg" id="mr-msg"></div>
+
+        <div class="grid2" style="margin-top:14px;">
+          <div class="field">
+            <label>ከቀን</label>
+            <input type="date" id="mr-from">
+          </div>
+          <div class="field">
+            <label>እስከ ቀን</label>
+            <input type="date" id="mr-to">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="btn-mr-range-download">⬇️ በተመረጠው ቀን አውርድ</button>
+        </div>
+        <div class="error-msg" id="mr-range-msg"></div>
       </div>
 
       <div class="section-title"><span class="num">10</span> 🗂️ የስራ አስኪያጅ ማጠቃለያ (እውነተኛ-ጊዜ)</div>
@@ -466,6 +491,21 @@ import {
   getFirestore, collection, doc, setDoc, getDoc, getDocs,
   deleteDoc, onSnapshot, query
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+
+// ---- Light/Dark theme toggle ----
+const themeToggleBtn = document.getElementById('theme-toggle');
+let isLightTheme = false;
+try{ isLightTheme = localStorage.getItem('halal-theme') === 'light'; }catch(e){}
+function applyTheme(light){
+  document.body.classList.toggle('light-theme', light);
+  themeToggleBtn.textContent = light ? '☀️' : '🌙';
+}
+applyTheme(isLightTheme);
+themeToggleBtn.addEventListener('click', ()=>{
+  isLightTheme = !isLightTheme;
+  applyTheme(isLightTheme);
+  try{ localStorage.setItem('halal-theme', isLightTheme ? 'light' : 'dark'); }catch(e){}
+});
 
 const firebaseConfig = {
   apiKey: "AIzaSyAZ7MU2B58bWcu-8jH9Pvv5Ob9XGQyx4NU",
@@ -1184,6 +1224,55 @@ function monthlyReportBlob(monthStr){
 }
 function monthFilename(monthStr){ return `ወርሃዊ-ሪፖርት-${monthStr}.xlsx`; }
 
+function buildRangeRows(fromStr, toStr){
+  const map = {};
+  allReports.filter(r=> (r.date||'') >= fromStr && (r.date||'') <= toStr).forEach(r=>{
+    const key = r.workerPhone || r.workerName;
+    if(!map[key]) map[key] = { name: r.workerName || '', phone: r.workerPhone || '', address: '', income: 0, expense: 0 };
+    map[key].income += Number(r.income) || 0;
+    map[key].expense += Number(r.expense) || 0;
+  });
+  Object.values(map).forEach(row=>{
+    const u = allUsers.find(u=>u.id === row.phone);
+    row.address = (u && u.address) ? u.address : '';
+  });
+  return Object.values(map).sort((a,b)=> a.name.localeCompare(b.name));
+}
+function rangeReportBlob(fromStr, toStr){
+  const rows = buildRangeRows(fromStr, toStr);
+  const header = ['ስም','ስልክ','አድራሻ','ጠቅላላ ገቢ','ጠቅላላ ወጪ','ጠቅላላ ትርፍ'];
+  const data = [header, ...rows.map(r=>[r.name, r.phone, r.address, r.income, r.expense, r.income - r.expense])];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:20},{wch:14},{wch:20},{wch:14},{wch:14},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, `${fromStr}_${toStr}`);
+  const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+  return { blob: new Blob([out], {type:'application/octet-stream'}), rows };
+}
+function rangeFilename(fromStr, toStr){ return `ሪፖርት-${fromStr}_እስከ_${toStr}.xlsx`; }
+
+function showMrRangeMsg(text, isError){
+  const el = document.getElementById('mr-range-msg');
+  el.style.color = isError ? 'var(--red)' : 'var(--green)';
+  el.textContent = text; el.style.display = 'block';
+  setTimeout(()=>{ el.style.display='none'; }, 3500);
+}
+
+const btnMrRangeDownload = document.getElementById('btn-mr-range-download');
+if(btnMrRangeDownload) btnMrRangeDownload.addEventListener('click', ()=>{
+  const fromStr = document.getElementById('mr-from').value;
+  const toStr = document.getElementById('mr-to').value;
+  if(!fromStr || !toStr){ showMrRangeMsg('ከቀን እና እስከ ቀን ይምረጡ።', true); return; }
+  if(fromStr > toStr){ showMrRangeMsg('የመጀመሪያው ቀን ከመጨረሻው ቀን በኋላ መሆን የለበትም።', true); return; }
+  const { blob, rows } = rangeReportBlob(fromStr, toStr);
+  if(rows.length === 0){ showMrRangeMsg('ለዚህ ቀን ክልል ምንም ሪፖርት አልተገኘም።', true); return; }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = rangeFilename(fromStr, toStr); a.click();
+  URL.revokeObjectURL(url);
+  showMrRangeMsg('ወርዷል።', false);
+});
+
 function showMrMsg(text, isError){
   const el = document.getElementById('mr-msg');
   el.style.color = isError ? 'var(--red)' : 'var(--green)';
@@ -1336,4 +1425,4 @@ document.getElementById('users-list').addEventListener('click', async (e)=>{
 });
 </script>
 </body>
-  </html>
+              </html>
