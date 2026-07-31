@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>የሀላል ዕለታዊ የባለሙያ ሪፖርት</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#2563EB">
+<meta name="theme-color" content="#F5A623">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -17,20 +17,20 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0F172A; --panel:#1E293B; --card:#334155;
-    --amber:#2563EB; --amber-dim:#1E3A8A;
-    --green:#10B981; --green-dim:#064E3B;
-    --red:#EF4444; --red-dim:#7F1D1D;
-    --text:#F8FAFC; --text-2:#94A3B8; --text-3:#64748B;
-    --line:#334155; --line-strong:#475569;
+    --bg:#14171A; --panel:#1B1F23; --card:#21262B;
+    --amber:#F5A623; --amber-dim:#4A3A19;
+    --green:#4CAF6D; --green-dim:#1E3A28;
+    --red:#E4572E; --red-dim:#3A2018;
+    --text:#ECECE9; --text-2:#9AA3AB; --text-3:#63696F;
+    --line:#2E343A; --line-strong:#3A4147;
   }
   body.light-theme{
-    --bg:#F8FAFC; --panel:#FFFFFF; --card:#F1F5F9;
-    --amber:#2563EB; --amber-dim:#DBEAFE;
-    --green:#059669; --green-dim:#D1FAE5;
-    --red:#DC2626; --red-dim:#FEE2E2;
-    --text:#0F172A; --text-2:#475569; --text-3:#94A3B8;
-    --line:#E2E8F0; --line-strong:#CBD5E1;
+    --bg:#F5F3EF; --panel:#FFFFFF; --card:#FBFAF7;
+    --amber:#B97600; --amber-dim:#F3E3C4;
+    --green:#1E8A4C; --green-dim:#DDF2E4;
+    --red:#C23F1D; --red-dim:#F7DCD2;
+    --text:#1B1F23; --text-2:#5B6570; --text-3:#8A929A;
+    --line:#E1DED6; --line-strong:#CFCBC0;
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:'Noto Sans Ethiopic',sans-serif;line-height:1.6;}
@@ -39,16 +39,16 @@
   .hidden{display:none !important;}
 
   .plate{
-    background:linear-gradient(180deg,#1E293B,#0F172A);
+    background:linear-gradient(180deg,#20252A,#191D21);
     border:1px solid var(--line-strong);border-radius:6px;
     padding:20px 22px;position:relative;overflow:hidden;
   }
   .plate::before{
     content:"";position:absolute;top:0;left:0;right:0;height:3px;
-    background:repeating-linear-gradient(135deg,var(--amber) 0 10px,#0F172A 10px 20px);
+    background:repeating-linear-gradient(135deg,var(--amber) 0 10px,#1a1a1a 10px 20px);
   }
-  .plate h1{margin:0;font-size:19px;font-weight:700;}
-  .plate p{margin:4px 0 0;font-size:12.5px;color:var(--text-2);}
+  .plate h1{margin:0;font-size:19px;font-weight:700;color:#ffffff;text-shadow:0 1px 2px rgba(0,0,0,0.5);}
+  .plate p{margin:4px 0 0;font-size:12.5px;color:#d1d5db;}
   .theme-toggle-btn{position:absolute;top:12px;right:12px;z-index:2;font-size:16px;}
   .install-btn{position:absolute;top:12px;right:52px;z-index:2;font-size:16px;}
 
@@ -63,7 +63,7 @@
   .icon-btn:hover{border-color:var(--amber);color:var(--amber);}
 
   .modal-overlay{
-    position:fixed;inset:0;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;
+    position:fixed;inset:0;background:rgba(10,12,14,.72);display:flex;align-items:center;justify-content:center;
     padding:20px;z-index:100;
   }
   .modal-overlay.hidden{display:none;}
@@ -74,7 +74,7 @@
   .modal-box .sub{font-size:12px;color:var(--text-2);margin:0 0 16px;}
   .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;}
   .badge-admin{font-size:10.5px;background:var(--amber-dim);color:var(--amber);padding:2px 8px;border-radius:20px;margin-left:8px;font-family:'JetBrains Mono',monospace;}
-  .badge-worker{font-size:10.5px;background:#334155;color:var(--text-2);padding:2px 8px;border-radius:20px;margin-left:8px;font-family:'JetBrains Mono',monospace;}
+  .badge-worker{font-size:10.5px;background:#2b2f33;color:var(--text-2);padding:2px 8px;border-radius:20px;margin-left:8px;font-family:'JetBrains Mono',monospace;}
 
   .section-title{display:flex;align-items:center;gap:10px;margin:28px 0 12px;font-size:13px;color:var(--text-2);}
   .section-title .num{font-family:'JetBrains Mono',monospace;color:var(--amber);font-size:12px;border:1px solid var(--line-strong);border-radius:4px;padding:1px 6px;}
@@ -91,7 +91,7 @@
   input.mono{font-family:'JetBrains Mono',monospace;}
   textarea{resize:vertical;min-height:56px;}
   input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber);}
-  input[readonly]{color:var(--text-2);background:#0F172A;}
+  input[readonly]{color:var(--text-2);background:#191d21;}
 
   .readout{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;}
   .readout .chip{
@@ -128,17 +128,17 @@
     cursor:pointer;border:1px solid var(--line-strong);background:var(--card);color:var(--text);
   }
   button:hover{border-color:var(--amber);}
-  button.primary{background:var(--amber);color:#FFFFFF;border-color:var(--amber);font-weight:600;}
-  button.primary:hover{background:#3B82F6;}
+  button.primary{background:var(--amber);color:#241a05;border-color:var(--amber);font-weight:600;}
+  button.primary:hover{background:#ffb748;}
   button.ghost{background:transparent;border-color:var(--line);}
   button.small{padding:6px 12px;font-size:12px;}
   button:disabled{opacity:.5;cursor:not-allowed;}
 
   .account-box{
-    background:var(--amber-dim);border:1px solid #1D4ED8;border-radius:6px;padding:14px 16px;
+    background:var(--amber-dim);border:1px solid #5a4520;border-radius:6px;padding:14px 16px;
     display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
   }
-  .account-box .k{font-size:11.5px;color:#93C5FD;}
+  .account-box .k{font-size:11.5px;color:#d9b46a;}
   .account-box .v{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--amber);}
   .account-box .name{font-size:13px;color:var(--text-2);margin-top:2px;}
 
@@ -569,7 +569,6 @@ async function sendTelegramMessage(text) {
     console.error('Error sending telegram message:', error);
   }
 }
-
 const DAYS_AM = ['እሁድ','ሰኞ','ማክሰኞ','ረቡዕ','ሐሙስ','አርብ','ቅዳሜ'];
 const ETH_MONTHS = ['መስከረም','ጥቅምት','ኅዳር','ታኅሳስ','ጥር','የካቲት','መጋቢት','ሚያዝያ','ግንቦት','ሰኔ','ሐምሌ','ነሐሴ','ጳጉሜን'];
 
@@ -1436,7 +1435,7 @@ function renderHistory(){
     const ethLabel = toEthiopianDate(date);
     let tag = '';
     if(date === today) tag = '<span class="today-tag">ዛሬ</span>';
-    else if(date === yesterday) tag = '<span class="today-tag" style="background:#334155;color:var(--text-2);">ትላንት</span>';
+    else if(date === yesterday) tag = '<span class="today-tag" style="background:#2b2f33;color:var(--text-2);">ትላንት</span>';
     const dayName = group[0].day || '';
     const itemsHtml = group.map(r => `
       <div class="hist-item">
