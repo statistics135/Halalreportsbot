@@ -678,6 +678,19 @@ async function sendTelegramPhoto(dataUrl, caption){
     await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, { method:'POST', body: formData });
   }catch(e){ console.error('Telegram photo error', e); }
 }
+async function sendTelegramMediaGroup(images, captions){
+  try{
+    const formData = new FormData();
+    formData.append('chat_id', TELEGRAM_CHAT_ID);
+    const media = images.map((img, i)=>{
+      const field = `photo${i}`;
+      formData.append(field, dataURLtoBlob(img), `photo${i}.jpg`);
+      return { type: 'photo', media: `attach://${field}`, caption: captions[i] || '' };
+    });
+    formData.append('media', JSON.stringify(media));
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMediaGroup`, { method:'POST', body: formData });
+  }catch(e){ console.error('Telegram media group error', e); }
+}
 async function sendTelegramReportPhotos(workerName, date, fullReportText){
   const photos = [
     ...warrantyImages.map(img => ({ img, type: 'ዋራንቲ' })),
@@ -687,21 +700,21 @@ async function sendTelegramReportPhotos(workerName, date, fullReportText){
   if(photos.length === 0){
     // ፎቶ ከሌለ ጽሁፉን ብቻ መላክ
     await sendTelegramText(fullReportText);
+  } else if(photos.length === 1){
+    // 1 ፎቶ ብቻ ካለ ከሙሉ ሪፖርት ጽሁፉ ጋር ተያይዞ ይላካል
+    if(fullReportText.length <= 1024){
+      await sendTelegramPhoto(photos[0].img, fullReportText);
+    } else {
+      await sendTelegramText(fullReportText);
+      await sendTelegramPhoto(photos[0].img, `📎 ${photos[0].type} ፎቶ — ${workerName} — ${date}`);
+    }
   } else {
-    // ፎቶ ካለ የመጀመሪያው ፎቶ ከሙሉ ሪፖርት ጽሁፉ ጋር ተያይዞ ይላካል
-    for(let i = 0; i < photos.length; i++){
-      if(i === 0){
-        // የመጀመሪያው ፎቶ ላይ ሙሉ ጽሁፉ እንደ caption ይያያዛል
-        if(fullReportText.length <= 1024){
-          await sendTelegramPhoto(photos[i].img, fullReportText);
-        } else {
-          // ጽሁፉ ከ1024 በላይ ከሆነ ጽሁፉንና ፎቶውን ተከታትለው ይልካል
-          await sendTelegramText(fullReportText);
-          await sendTelegramPhoto(photos[i].img, `📎 ${photos[i].type} ፎቶ — ${workerName} — ${date}`);
-        }
-      } else {
-        await sendTelegramPhoto(photos[i].img, `📎 ${photos[i].type} ፎቶ ${i+1} — ${workerName} — ${date}`);
-      }
+    // 2 እና ከዚያ በላይ ፎቶ ካለ — ጽሁፉ ተለይቶ፣ ፎቶዎቹ ሁሉም አንድ ላይ (album) ተያይዘው ይላካሉ
+    await sendTelegramText(fullReportText);
+    const captions = photos.map((p,i)=> `📎 ${p.type} ፎቶ ${i+1}/${photos.length} — ${workerName} — ${date}`);
+    const imgs = photos.map(p=>p.img);
+    for(let i=0; i<imgs.length; i+=10){
+      await sendTelegramMediaGroup(imgs.slice(i,i+10), captions.slice(i,i+10));
     }
   }
 }
@@ -1562,4 +1575,4 @@ document.getElementById('users-list').addEventListener('click', async (e)=>{
 });
 </script>
 </body>
-          </html>
+  </html>
