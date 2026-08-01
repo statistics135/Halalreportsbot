@@ -262,7 +262,7 @@
         </div>
 
         <div id="reg-step2" class="hidden">
-          <div class="notice" style="margin-bottom:14px;">📨 የማረጋገጫ ኮድ ወደ ድርጅቱ አድሚን Telegram ተልኳል። አድሚኑ የደረሰውን ባለ 6-ዲጂት ኮድ ይንገርዎት፣ ከታች ያስገቡ።</div>
+          <div class="notice" style="margin-bottom:14px;" id="reg-code-notice">📨 የማረጋገጫ ኮድ ወደ ድርጅቱ አድሚን Telegram ተልኳል። አድሚኑ የደረሰውን ባለ 6-ዲጂት ኮድ ይንገርዎት፣ ከታች ያስገቡ።</div>
           <div class="field">
             <label>🔑 ከአድሚን የደረሰዎት ኮድ</label>
             <input type="text" id="reg-verify-code" class="mono" maxlength="6" placeholder="000000">
@@ -523,20 +523,31 @@ if('serviceWorker' in navigator){
 }
 let deferredInstallPrompt = null;
 const installBtn = document.getElementById('install-app-btn');
+installBtn.classList.remove('hidden');
 window.addEventListener('beforeinstallprompt', (e)=>{
   e.preventDefault();
   deferredInstallPrompt = e;
   installBtn.classList.remove('hidden');
 });
 installBtn.addEventListener('click', async ()=>{
-  if(!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  await deferredInstallPrompt.userChoice;
-  deferredInstallPrompt = null;
-  installBtn.classList.add('hidden');
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    return;
+  }
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if(isStandalone){
+    alert('መተግበሪያው ቀድሞውኑ ተጭኗል።');
+  }else if(isIOS){
+    alert('ለመጫን፦ ከታች ያለውን የShare (⬆️) አይከን ይጫኑ፣ ከዚያ "Add to Home Screen" ይምረጡ።');
+  }else{
+    alert('ለመጫን፦ Browser ምናሌ (⋮) ይክፈቱ፣ ከዚያ "Add to Home screen" ወይም "Install app" ይምረጡ።');
+  }
 });
 window.addEventListener('appinstalled', ()=>{
-  installBtn.classList.add('hidden');
+  deferredInstallPrompt = null;
 });
 
 const firebaseConfig = {
@@ -772,7 +783,7 @@ document.getElementById('btn-reg-step1').addEventListener('click', async ()=>{
     const isAdmin = adminCode.trim() === ADMIN_SECRET;
     const code = genCode();
     pendingReg = { name, phone, address, passwordHash, isAdmin, code };
-    await sendTelegramText(`🆕 አዲስ የመዳረሻ ጥያቄ\n👤 ስም: ${name}\n📱 ስልክ: ${phone}\n🔑 ኮድ: ${code}${isAdmin ? '\n⚠️ አድሚን ለመሆን ጠይቋል' : ''}`);
+    document.getElementById('reg-code-notice').innerHTML = `🔑 የማረጋገጫ ኮድዎ: <b class="mono">${code}</b><br>ከታች ባለው ሳጥን ውስጥ ይህንኑ ኮድ ያስገቡ።`;
     document.getElementById('reg-step1').classList.add('hidden');
     document.getElementById('reg-step2').classList.remove('hidden');
   }catch(e){
@@ -789,11 +800,11 @@ document.getElementById('btn-reg-back').addEventListener('click', ()=>{
   hideAuthError();
 });
 
-document.getElementById('btn-reg-resend').addEventListener('click', async ()=>{
+document.getElementById('btn-reg-resend').addEventListener('click', ()=>{
   if(!pendingReg) return;
   pendingReg.code = genCode();
-  await sendTelegramText(`🔁 ድጋሚ ኮድ\n👤 ስም: ${pendingReg.name}\n📱 ስልክ: ${pendingReg.phone}\n🔑 ኮድ: ${pendingReg.code}`);
-  showAuthError('አዲስ ኮድ ተልኳል።');
+  document.getElementById('reg-code-notice').innerHTML = `🔑 የማረጋገጫ ኮድዎ: <b class="mono">${pendingReg.code}</b><br>ከታች ባለው ሳጥን ውስጥ ይህንኑ ኮድ ያስገቡ።`;
+  showAuthError('አዲስ ኮድ ተዘጋጅቷል።');
 });
 
 document.getElementById('btn-reg-verify').addEventListener('click', async ()=>{
@@ -885,10 +896,7 @@ function enterApp(){
   document.getElementById('admin-section').classList.toggle('hidden', !currentUser.isAdmin);
   document.getElementById('history-title').textContent = currentUser.isAdmin ? 'ሁሉም ሪፖርቶች' : 'የኔ ያለፉ ሪፖርቶች';
 
-  document.getElementById('f-date').value = todayISO();
-  updateDayName();
-  renderJobs();
-  updateFinance();
+  resetFormDraft();
 
   const reportsQuery = currentUser.isAdmin
     ? query(collection(db,'reports'))
@@ -1554,4 +1562,4 @@ document.getElementById('users-list').addEventListener('click', async (e)=>{
 });
 </script>
 </body>
-</html>
+          </html>
