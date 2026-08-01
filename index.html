@@ -53,8 +53,9 @@
   .install-btn{position:absolute;top:12px;right:52px;z-index:2;font-size:16px;}
   .msg-btn-inline{position:relative;}
   .msg-badge{
-    position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;
-    background:var(--red);border:1.5px solid var(--panel);
+    position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;
+    background:var(--red);border:1.5px solid var(--panel);color:#fff;font-size:10px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;line-height:1;font-family:'JetBrains Mono',monospace;
   }
   .msg-item{background:var(--card);border:1px solid var(--line-strong);border-radius:6px;padding:12px 14px;margin-bottom:8px;}
   .msg-item .meta{font-size:11px;color:var(--text-2);margin-bottom:6px;font-family:'JetBrains Mono',monospace;}
@@ -1673,6 +1674,7 @@ function updateMessageBadge(){
   const badge = document.getElementById('msg-badge');
   if(!currentUser){ badge.classList.add('hidden'); return; }
   const unread = relevantMessages().filter(m => !(m.readBy||[]).includes(currentUser.phone));
+  badge.textContent = unread.length > 9 ? '9+' : String(unread.length);
   badge.classList.toggle('hidden', unread.length === 0);
 }
 function renderMessagesList(){
@@ -1708,4 +1710,4 @@ document.getElementById('btn-msg-close').addEventListener('click', ()=>{
 });
 </script>
 </body>
-        </html>
+  </html>
