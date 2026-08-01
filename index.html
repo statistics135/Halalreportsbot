@@ -393,17 +393,16 @@
 
     <div class="form-actions">
       <button type="button" class="ghost" id="btn-clear">አጽዳ</button>
-      <button type="button" class="primary" id="btn-generate">ሪፖርት አመንጭ</button>
+      <button type="button" class="primary" id="btn-save">ሪፖርት አመንጭ እና ላክ</button>
     </div>
 
     <div class="section-title"><span class="num">08</span> ለመላክ ዝግጁ ሪፖርት</div>
     <div class="card">
-      <div class="output-box" id="output">ገና ምንም ሪፖርት አልተፈጠረም። ከላይ "ሪፖርት አመንጭ" የሚለውን ይጫኑ።</div>
+      <div class="output-box" id="output">ገና ምንም ሪፖርት አልተፈጠረም። ከላይ "ሪፖርት አመንጭ እና ላክ" የሚለውን ይጫኑ።</div>
       <div class="copy-msg" id="copy-msg">✅ ጽሁፉ ተኮፒ ተደርጓል!</div>
       <div class="copy-msg" id="save-msg">✅ ሪፖርት ተልኳል እና ተቀምጧል!</div>
       <div class="form-actions">
         <button type="button" class="ghost" id="btn-copy">ጽሁፉን ኮፒ አድርግ</button>
-        <button type="button" class="primary" id="btn-save">ሪፖርት ላክ እና አስቀምጥ</button>
       </div>
     </div>
 
@@ -668,9 +667,32 @@ async function sendTelegramPhoto(dataUrl, caption){
     await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, { method:'POST', body: formData });
   }catch(e){ console.error('Telegram photo error', e); }
 }
-async function sendTelegramReportPhotos(workerName, date){
-  for(const img of warrantyImages){ await sendTelegramPhoto(img, `📎 ዋራንቲ ፎቶ — ${workerName} — ${date}`); }
-  for(const img of receiptImages){ await sendTelegramPhoto(img, `📎 ደረሰኝ ፎቶ — ${workerName} — ${date}`); }
+async function sendTelegramReportPhotos(workerName, date, fullReportText){
+  const photos = [
+    ...warrantyImages.map(img => ({ img, type: 'ዋራንቲ' })),
+    ...receiptImages.map(img => ({ img, type: 'ደረሰኝ' }))
+  ];
+
+  if(photos.length === 0){
+    // ፎቶ ከሌለ ጽሁፉን ብቻ መላክ
+    await sendTelegramText(fullReportText);
+  } else {
+    // ፎቶ ካለ የመጀመሪያው ፎቶ ከሙሉ ሪፖርት ጽሁፉ ጋር ተያይዞ ይላካል
+    for(let i = 0; i < photos.length; i++){
+      if(i === 0){
+        // የመጀመሪያው ፎቶ ላይ ሙሉ ጽሁፉ እንደ caption ይያያዛል
+        if(fullReportText.length <= 1024){
+          await sendTelegramPhoto(photos[i].img, fullReportText);
+        } else {
+          // ጽሁፉ ከ1024 በላይ ከሆነ ጽሁፉንና ፎቶውን ተከታትለው ይልካል
+          await sendTelegramText(fullReportText);
+          await sendTelegramPhoto(photos[i].img, `📎 ${photos[i].type} ፎቶ — ${workerName} — ${date}`);
+        }
+      } else {
+        await sendTelegramPhoto(photos[i].img, `📎 ${photos[i].type} ፎቶ ${i+1} — ${workerName} — ${date}`);
+      }
+    }
+  }
 }
 async function sendTelegramDocument(blob, filename, caption){
   try{
@@ -1112,10 +1134,6 @@ ${warranty} — የዋራንቲ ካርድ እና ሎጎ ፎቶ
 ${receipt} — የባንክ ደረሰኝ`;
 }
 
-document.getElementById('btn-generate').addEventListener('click', ()=>{
-  document.getElementById('output').textContent = buildReportText();
-});
-
 function copyText(text){
   navigator.clipboard.writeText(text).then(()=>{
     const msg = document.getElementById('copy-msg');
@@ -1137,7 +1155,7 @@ function resetFormDraft(){
   document.getElementById('f-notes').value = '';
   clearUploads();
   updateFinance();
-  document.getElementById('output').textContent = 'ገና ምንም ሪፖርት አልተፈጠረም። ከላይ "ሪፖርት አመንጭ" የሚለውን ይጫኑ።';
+  document.getElementById('output').textContent = 'ገና ምንም ሪፖርት አልተፈጠረም። ከላይ "ሪፖርት አመንጭ እና ላክ" የሚለውን ይጫኑ።';
 }
 document.getElementById('btn-clear').addEventListener('click', resetFormDraft);
 
@@ -1151,11 +1169,12 @@ setInterval(()=>{
   }
 }, 60000);
 
-// ---- Save report ----
+// ---- Generate & Save Report (Combined Button) ----
 document.getElementById('btn-save').addEventListener('click', async ()=>{
   if(isSaving) return; 
 
   const text = buildReportText();
+  document.getElementById('output').textContent = text;
 
   if(text === lastSavedText){
     const ok = confirm('ይህ ሪፖርት ልክ አሁን ተልኳል (ምንም ለውጥ የለውም)። እርግጠኛ ከሆኑ ደግመው መላክ ይፈልጋሉ?');
@@ -1187,10 +1206,10 @@ document.getElementById('btn-save').addEventListener('click', async ()=>{
   try{
     const newDoc = doc(collection(db,'reports'));
     await setDoc(newDoc, entry);
-    await sendTelegramText(text);
-    await sendTelegramReportPhotos(entry.workerName, entry.date);
+    await sendTelegramReportPhotos(entry.workerName, entry.date, text);
     lastSavedText = text;
-    clearUploads();
+    
+    // ፎቶዎች በራሳቸው አይጠፉም (አዲስ ዳታ እስካልገባ/አጽዳ እስካልተባለ)
     const saveMsg = document.getElementById('save-msg');
     saveMsg.style.display='block'; setTimeout(()=>{saveMsg.style.display='none';}, 3000);
   }catch(e){
@@ -1200,7 +1219,7 @@ document.getElementById('btn-save').addEventListener('click', async ()=>{
 
   isSaving = false;
   btn.disabled = false; 
-  btn.textContent = 'ሪፖርት ላክ እና አስቀምጥ';
+  btn.textContent = 'ሪፖርት አመንጭ እና ላክ';
 });
 
 // ---- Admin Dashboard ----
@@ -1234,7 +1253,7 @@ function renderDashboard(){
 document.getElementById('f-filter-worker').addEventListener('change', ()=>{renderDashboard(); renderHistory();});
 document.getElementById('f-filter-date').addEventListener('change', ()=>{renderDashboard(); renderHistory();});
 
-// ---- Monthly Excel Report (UPDATED WITH WORKER SHARE, COMPANY AMOUNT & TOTAL SUM) ----
+// ---- Monthly Excel Report ----
 function buildMonthlyRows(monthStr){
   const map = {};
   allReports.filter(r=>(r.date||'').startsWith(monthStr)).forEach(r=>{
