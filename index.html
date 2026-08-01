@@ -51,7 +51,7 @@
   .plate p{margin:4px 0 0;font-size:12.5px;color:#d1d5db;}
   .theme-toggle-btn{position:absolute;top:12px;right:12px;z-index:2;font-size:16px;}
   .install-btn{position:absolute;top:12px;right:52px;z-index:2;font-size:16px;}
-  .message-btn{position:absolute;top:12px;right:92px;z-index:2;font-size:16px;}
+  .msg-btn-inline{position:relative;}
   .msg-badge{
     position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;
     background:var(--red);border:1.5px solid var(--panel);
@@ -209,7 +209,6 @@
   <div class="plate">
     <button type="button" class="icon-btn theme-toggle-btn" id="theme-toggle" title="ገፅታ ቀይር (ነጭ/ጥቁር)">🌙</button>
     <button type="button" class="icon-btn install-btn hidden" id="install-app-btn" title="እንደ መተግበሪያ ጫን">📲</button>
-    <button type="button" class="icon-btn message-btn" id="btn-open-messages" title="መልእክቶች">💬<span class="msg-badge hidden" id="msg-badge"></span></button>
     <h1>📋 የሀላል ዕለታዊ የባለሙያ ሪፖርት</h1>
     <p>ዕለታዊ የስራ፣ ገቢ እና ወጪ ማጠቃለያ — ለድርጅት ማስተላለፊያ</p>
   </div>
@@ -297,6 +296,7 @@
         <span id="who-badge"></span>
       </div>
       <div class="session-actions">
+        <button type="button" class="icon-btn msg-btn-inline" id="btn-open-messages" title="መልእክቶች">💬<span class="msg-badge hidden" id="msg-badge"></span></button>
         <button type="button" class="icon-btn" id="btn-open-changepass" title="ፓስወርድ ቀይር">🔑</button>
         <button type="button" class="ghost small" id="btn-logout">ውጣ</button>
       </div>
@@ -1708,4 +1708,4 @@ document.getElementById('btn-msg-close').addEventListener('click', ()=>{
 });
 </script>
 </body>
-            </html>
+        </html>
