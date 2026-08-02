@@ -271,15 +271,10 @@
         </div>
 
         <div id="reg-step2" class="hidden">
-          <div class="notice" style="margin-bottom:14px;" id="reg-code-notice">📨 የማረጋገጫ ኮድ ወደ ድርጅቱ አድሚን Telegram ተልኳል። አድሚኑ የደረሰውን ባለ 6-ዲጂት ኮድ ይንገርዎት፣ ከታች ያስገቡ።</div>
-          <div class="field">
-            <label>🔑 ከአድሚን የደረሰዎት ኮድ</label>
-            <input type="text" id="reg-verify-code" class="mono" maxlength="6" placeholder="000000">
-          </div>
+          <div class="notice" style="margin-bottom:14px;" id="reg-code-notice">📨 የማጽደቂያ ጥያቄ ወደ ድርጅቱ አድሚን ተልኳል። አድሚኑ እስኪያፀድቅ ይጠብቁ — እንደፀደቀ ወዲያውኑ ራስዎ ይገባሉ።</div>
           <div class="form-actions">
             <button type="button" class="ghost" id="btn-reg-back">ተመለስ</button>
-            <button type="button" class="ghost" id="btn-reg-resend">ኮድ እንደገና ላክ</button>
-            <button type="button" class="primary" id="btn-reg-verify">አረጋግጥ እና ተመዝገብ</button>
+            <button type="button" class="ghost" id="btn-reg-resend">ጥያቄ እንደገና ላክ</button>
           </div>
         </div>
       </div>
@@ -531,6 +526,18 @@
     </div>
   </div>
 
+  <!-- APPROVE REGISTRATION MODAL -->
+  <div id="approve-overlay" class="modal-overlay hidden">
+    <div class="modal-box">
+      <h3>🆕 አዲስ ተመዝጋቢ ማጽደቅ</h3>
+      <div id="approve-details" class="sub" style="margin-bottom:14px;"></div>
+      <div class="modal-actions">
+        <button type="button" class="ghost small" id="btn-approve-reject">አትቀበል</button>
+        <button type="button" class="primary small" id="btn-approve-accept">ተቀበል</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script type="module">
@@ -695,6 +702,7 @@ let usersLoadedOnce = false;
 let monthlyAutoCheckDone = false;
 let allMessages = [];
 let messagesUnsub = null;
+let pendingRegUnsub = null;
 
 // ---- Helpers ----
 async function sha256(text){
@@ -872,12 +880,13 @@ document.getElementById('btn-reg-step1').addEventListener('click', async ()=>{
     }
     const passwordHash = await sha256(pass);
     const isAdmin = adminCode.trim() === ADMIN_SECRET;
-    const code = genCode();
-    pendingReg = { name, phone, address, passwordHash, isAdmin, code };
-    await sendTelegramText(`🆕 አዲስ የመዳረሻ ጥያቄ\n👤 ስም: ${name}\n📱 ስልክ: ${phone}\n🔑 ኮድ: ${code}${isAdmin ? '\n⚠️ አድሚን ለመሆን ጠይቋል' : ''}`);
-    document.getElementById('reg-code-notice').textContent = '📨 የማረጋገጫ ኮድ ወደ ድርጅቱ አድሚን Telegram ተልኳል። አድሚኑ የደረሰውን ባለ 6-ዲጂት ኮድ ይንገርዎት፣ ከታች ያስገቡ።';
+    await setDoc(doc(db,'pendingRegistrations',phone), { name, phone, address, passwordHash, isAdmin, createdAt: Date.now() });
+    pendingReg = { name, phone, address, isAdmin };
+    const approveUrl = `${location.origin}${location.pathname}?approve=${phone}`;
+    await sendTelegramText(`🆕 አዲስ የመዳረሻ ጥያቄ\n👤 ስም: ${name}\n📱 ስልክ: ${phone}\n🏠 አድራሻ: ${address}${isAdmin ? '\n⚠️ አድሚን ለመሆን ጠይቋል' : ''}\n\nለማጽደቅ ይንኩ፦\n${approveUrl}`);
     document.getElementById('reg-step1').classList.add('hidden');
     document.getElementById('reg-step2').classList.remove('hidden');
+    watchApproval(phone);
   }catch(e){
     console.error(e);
     showAuthError('ግንኙነት ላይ ችግር ተፈጥሯል።');
@@ -888,37 +897,31 @@ document.getElementById('btn-reg-step1').addEventListener('click', async ()=>{
 document.getElementById('btn-reg-back').addEventListener('click', ()=>{
   document.getElementById('reg-step1').classList.remove('hidden');
   document.getElementById('reg-step2').classList.add('hidden');
+  if(pendingRegUnsub){ pendingRegUnsub(); pendingRegUnsub = null; }
   pendingReg = null;
   hideAuthError();
 });
 
 document.getElementById('btn-reg-resend').addEventListener('click', async ()=>{
   if(!pendingReg) return;
-  pendingReg.code = genCode();
-  await sendTelegramText(`🔁 ድጋሚ ኮድ\n👤 ስም: ${pendingReg.name}\n📱 ስልክ: ${pendingReg.phone}\n🔑 ኮድ: ${pendingReg.code}`);
-  showAuthError('አዲስ ኮድ ተልኳል።');
+  const approveUrl = `${location.origin}${location.pathname}?approve=${pendingReg.phone}`;
+  await sendTelegramText(`🔁 ድጋሚ የመዳረሻ ጥያቄ\n👤 ስም: ${pendingReg.name}\n📱 ስልክ: ${pendingReg.phone}\n🏠 አድራሻ: ${pendingReg.address}${pendingReg.isAdmin ? '\n⚠️ አድሚን ለመሆን ጠይቋል' : ''}\n\nለማጽደቅ ይንኩ፦\n${approveUrl}`);
+  showAuthError('ጥያቄው እንደገና ተልኳል።');
 });
 
-document.getElementById('btn-reg-verify').addEventListener('click', async ()=>{
-  hideAuthError();
-  if(!pendingReg){ showAuthError('እባክዎ ከመጀመሪያው ይጀምሩ።'); return; }
-  const entered = document.getElementById('reg-verify-code').value.trim();
-  if(entered !== pendingReg.code){ showAuthError('ኮዱ ትክክል አይደለም።'); return; }
-  try{
-    await setDoc(doc(db,'users',pendingReg.phone), {
-      name: pendingReg.name, phone: pendingReg.phone, address: pendingReg.address || '',
-      passwordHash: pendingReg.passwordHash, isAdmin: pendingReg.isAdmin,
-      createdAt: Date.now()
-    });
-    currentUser = { name: pendingReg.name, phone: pendingReg.phone, isAdmin: pendingReg.isAdmin };
-    try{ localStorage.setItem('halal-session-phone', pendingReg.phone); }catch(e){}
-    pendingReg = null;
-    enterApp();
-  }catch(e){
-    console.error(e);
-    showAuthError('ምዝገባ አልተሳካም፣ እንደገና ይሞክሩ።');
-  }
-});
+function watchApproval(phone){
+  if(pendingRegUnsub){ pendingRegUnsub(); pendingRegUnsub = null; }
+  pendingRegUnsub = onSnapshot(doc(db,'users',phone), (snap)=>{
+    if(snap.exists()){
+      const user = snap.data();
+      if(pendingRegUnsub){ pendingRegUnsub(); pendingRegUnsub = null; }
+      currentUser = { name: user.name, phone, isAdmin: !!user.isAdmin };
+      try{ localStorage.setItem('halal-session-phone', phone); }catch(e){}
+      pendingReg = null;
+      enterApp();
+    }
+  }, (err)=>console.error('approval watch error', err));
+}
 
 // ---- Logout ----
 document.getElementById('btn-logout').addEventListener('click', ()=>{
@@ -995,6 +998,7 @@ function enterApp(){
 
   resetFormDraft();
   setupPushNotifications();
+  checkApprovalLink();
 
   const reportsQuery = currentUser.isAdmin
     ? query(collection(db,'reports'))
@@ -1748,6 +1752,44 @@ document.getElementById('btn-open-messages').addEventListener('click', async ()=
 document.getElementById('btn-msg-close').addEventListener('click', ()=>{
   document.getElementById('messages-overlay').classList.add('hidden');
 });
+
+// ---- Registration approval via link ----
+async function checkApprovalLink(){
+  if(!currentUser || !currentUser.isAdmin) return;
+  const params = new URLSearchParams(location.search);
+  const approvePhone = params.get('approve');
+  if(!approvePhone) return;
+  try{
+    const snap = await getDoc(doc(db,'pendingRegistrations',approvePhone));
+    if(!snap.exists()){
+      alert('ይህ የምዝገባ ጥያቄ አልተገኘም (ምናልባት ቀድሞ ጸድቋል ወይም ተሰርዟል)።');
+      history.replaceState(null,'',location.pathname);
+      return;
+    }
+    const data = snap.data();
+    document.getElementById('approve-details').innerHTML =
+      `<b>${escapeAttr(data.name)}</b><br>📱 ${escapeAttr(data.phone)}<br>🏠 ${escapeAttr(data.address||'')}` +
+      (data.isAdmin ? '<br>⚠️ አድሚን ለመሆን ጠይቋል' : '');
+    document.getElementById('approve-overlay').classList.remove('hidden');
+
+    document.getElementById('btn-approve-accept').onclick = async ()=>{
+      try{
+        await setDoc(doc(db,'users',data.phone), {
+          name: data.name, phone: data.phone, address: data.address || '',
+          passwordHash: data.passwordHash, isAdmin: data.isAdmin, createdAt: Date.now()
+        });
+        await deleteDoc(doc(db,'pendingRegistrations',data.phone));
+      }catch(e){ console.error(e); alert('ማጽደቅ አልተቻለም፣ እንደገና ይሞክሩ።'); }
+      document.getElementById('approve-overlay').classList.add('hidden');
+      history.replaceState(null,'',location.pathname);
+    };
+    document.getElementById('btn-approve-reject').onclick = async ()=>{
+      try{ await deleteDoc(doc(db,'pendingRegistrations',data.phone)); }catch(e){ console.error(e); }
+      document.getElementById('approve-overlay').classList.add('hidden');
+      history.replaceState(null,'',location.pathname);
+    };
+  }catch(e){ console.error('approval check failed', e); }
+}
 
 // ---- Auto-login (stay signed in after refresh) ----
 (async function tryAutoLogin(){
