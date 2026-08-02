@@ -837,6 +837,7 @@ document.getElementById('btn-login').addEventListener('click', async ()=>{
     const hash = await sha256(pass);
     if(hash !== user.passwordHash){ showAuthError('የይለፍ ቃል ትክክል አይደለም።'); return; }
     currentUser = { name: user.name, phone, isAdmin: !!user.isAdmin };
+    try{ localStorage.setItem('halal-session-phone', phone); }catch(e){}
     enterApp();
   }catch(e){
     console.error(e);
@@ -909,6 +910,7 @@ document.getElementById('btn-reg-verify').addEventListener('click', async ()=>{
       createdAt: Date.now()
     });
     currentUser = { name: pendingReg.name, phone: pendingReg.phone, isAdmin: pendingReg.isAdmin };
+    try{ localStorage.setItem('halal-session-phone', pendingReg.phone); }catch(e){}
     pendingReg = null;
     enterApp();
   }catch(e){
@@ -920,6 +922,7 @@ document.getElementById('btn-reg-verify').addEventListener('click', async ()=>{
 // ---- Logout ----
 document.getElementById('btn-logout').addEventListener('click', ()=>{
   currentUser = null;
+  try{ localStorage.removeItem('halal-session-phone'); }catch(e){}
   if(reportsUnsub){ reportsUnsub(); reportsUnsub = null; }
   if(usersUnsub){ usersUnsub(); usersUnsub = null; }
   if(messagesUnsub){ messagesUnsub(); messagesUnsub = null; }
@@ -1669,7 +1672,7 @@ function populateMessageTargets(){
   const workers = allUsers.filter(u=>!u.isAdmin);
   const current = sel.value;
   sel.innerHTML = '<option value="">ሁሉም ሰራተኛ</option>' +
-    workers.map(u=>`<option value="${u.id}">${escapeAttr(u.name)}</option>`).join('');
+    workers.map(u=>`<option value="${u.id}">${escapeAttr(u.name)}${u.address ? ' — ' + escapeAttr(u.address) : ''}</option>`).join('');
   sel.value = current;
 }
 document.getElementById('btn-msg-send').addEventListener('click', async ()=>{
@@ -1744,6 +1747,23 @@ document.getElementById('btn-open-messages').addEventListener('click', async ()=
 document.getElementById('btn-msg-close').addEventListener('click', ()=>{
   document.getElementById('messages-overlay').classList.add('hidden');
 });
+
+// ---- Auto-login (stay signed in after refresh) ----
+(async function tryAutoLogin(){
+  let savedPhone = null;
+  try{ savedPhone = localStorage.getItem('halal-session-phone'); }catch(e){}
+  if(!savedPhone) return;
+  try{
+    const snap = await getDoc(doc(db,'users',savedPhone));
+    if(snap.exists()){
+      const user = snap.data();
+      currentUser = { name: user.name, phone: savedPhone, isAdmin: !!user.isAdmin };
+      enterApp();
+    }else{
+      try{ localStorage.removeItem('halal-session-phone'); }catch(e){}
+    }
+  }catch(e){ console.error('auto-login failed', e); }
+})();
 </script>
 </body>
-        </html>
+  </html>
