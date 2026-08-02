@@ -88,6 +88,10 @@
   .section-title{display:flex;align-items:center;gap:10px;margin:28px 0 12px;font-size:13px;color:var(--text-2);}
   .section-title .num{font-family:'JetBrains Mono',monospace;color:var(--amber);font-size:12px;border:1px solid var(--line-strong);border-radius:4px;padding:1px 6px;}
   .section-title::after{content:"";flex:1;height:1px;background:var(--line);}
+  .admin-accordion-title{cursor:pointer;user-select:none;}
+  .admin-accordion-title::after{order:1;}
+  .admin-accordion-title .chevron{order:2;color:var(--text-2);font-size:11px;margin-left:2px;transition:transform .2s;}
+  .admin-accordion-title.collapsed .chevron{transform:rotate(-90deg);}
 
   .card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:18px 20px;}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
@@ -396,6 +400,10 @@
       <div class="hint" id="upload-status" style="margin-top:10px;">የተያያዙ ፎቶዎች — ዋራንቲ: 0, ደረሰኝ: 0</div>
     </div>
 
+    <div class="notice hidden" id="edit-banner" style="margin-bottom:10px;color:var(--amber);">
+      ✏️ ነባር ሪፖርት በማረም ላይ ነዎት — "ለውጦችን አስቀምጥ" ሲጫኑ ይተካል።
+      <button type="button" class="ghost small" id="btn-edit-cancel" style="margin-left:8px;">ይቅር (አዲስ ጀምር)</button>
+    </div>
     <div class="form-actions">
       <button type="button" class="ghost" id="btn-clear">አጽዳ</button>
       <button type="button" class="primary" id="btn-save">ሪፖርት አመንጭ እና ላክ</button>
@@ -412,7 +420,7 @@
     </div>
 
     <div id="admin-section" class="hidden">
-      <div class="section-title"><span class="num">09</span> 💬 ለሰራተኛ መልእክት ላክ</div>
+      <div class="section-title admin-accordion-title"><span class="num">09</span> 💬 ለሰራተኛ መልእክት ላክ <span class="chevron">▾</span></div>
       <div class="card">
         <div class="field">
           <label>ተቀባይ</label>
@@ -430,7 +438,7 @@
         <div class="error-msg" id="msg-send-status"></div>
       </div>
 
-      <div class="section-title"><span class="num">10</span> 📊 ወርሃዊ ሪፖርት (Excel)</div>
+      <div class="section-title admin-accordion-title"><span class="num">10</span> 📊 ወርሃዊ ሪፖርት (Excel) <span class="chevron">▾</span></div>
       <div class="card">
         <div class="field">
           <label>ወር ይምረጡ</label>
@@ -458,7 +466,7 @@
         <div class="error-msg" id="mr-range-msg"></div>
       </div>
 
-      <div class="section-title"><span class="num">11</span> 🗂️ የስራ አስኪያጅ ማጠቃለያ (እውነተኛ-ጊዜ)</div>
+      <div class="section-title admin-accordion-title"><span class="num">11</span> 🗂️ የስራ አስኪያጅ ማጠቃለያ (እውነተኛ-ጊዜ) <span class="chevron">▾</span></div>
       <div class="card">
         <div class="grid2">
           <div class="field">
@@ -478,8 +486,11 @@
         </div>
       </div>
 
-      <div class="section-title"><span class="num">12</span> 👥 የተጠቃሚዎች አስተዳደር</div>
+      <div class="section-title admin-accordion-title"><span class="num">12</span> 👥 የተጠቃሚዎች አስተዳደር <span class="chevron">▾</span></div>
       <div class="card">
+        <div class="field">
+          <input type="text" id="users-search" placeholder="በስም ወይም ስልክ ይፈልጉ...">
+        </div>
         <div class="history" id="users-list"></div>
       </div>
     </div>
@@ -695,6 +706,7 @@ let allUsers = [];
 let pendingReg = null; 
 let lastSavedText = null;
 let isSaving = false;
+let editingReportId = null;
 let reportsUnsub = null;
 let usersUnsub = null;
 let reportsLoadedOnce = false;
@@ -743,6 +755,17 @@ async function sendTelegramText(text){
       body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text })
     });
   }catch(e){ console.error('Telegram error', e); }
+}
+async function sendTelegramTextWithButton(text, buttonText, buttonUrl){
+  try{
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID, text,
+        reply_markup: { inline_keyboard: [[{ text: buttonText, url: buttonUrl }]] }
+      })
+    });
+  }catch(e){ console.error('Telegram button message error', e); }
 }
 function dataURLtoBlob(dataUrl){
   const parts = dataUrl.split(',');
@@ -809,8 +832,10 @@ async function sendTelegramDocument(blob, filename, caption){
     formData.append('chat_id', TELEGRAM_CHAT_ID);
     formData.append('document', blob, filename);
     if(caption) formData.append('caption', caption);
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, { method:'POST', body: formData });
-  }catch(e){ console.error('Telegram document error', e); }
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, { method:'POST', body: formData });
+    const data = await res.json().catch(()=>null);
+    return !!(data && data.ok);
+  }catch(e){ console.error('Telegram document error', e); return false; }
 }
 
 // ---- Auth Tabs ----
@@ -883,7 +908,10 @@ document.getElementById('btn-reg-step1').addEventListener('click', async ()=>{
     await setDoc(doc(db,'pendingRegistrations',phone), { name, phone, address, passwordHash, isAdmin, createdAt: Date.now() });
     pendingReg = { name, phone, address, isAdmin };
     const approveUrl = `${location.origin}${location.pathname}?approve=${phone}`;
-    await sendTelegramText(`🆕 አዲስ የመዳረሻ ጥያቄ\n👤 ስም: ${name}\n📱 ስልክ: ${phone}\n🏠 አድራሻ: ${address}${isAdmin ? '\n⚠️ አድሚን ለመሆን ጠይቋል' : ''}\n\nለማጽደቅ ይንኩ፦\n${approveUrl}`);
+    await sendTelegramTextWithButton(
+      `🆕 አዲስ የመዳረሻ ጥያቄ\n👤 ስም: ${name}\n📱 ስልክ: ${phone}\n🏠 አድራሻ: ${address}${isAdmin ? '\n⚠️ አድሚን ለመሆን ጠይቋል' : ''}`,
+      '✅ ተቀበል', approveUrl
+    );
     document.getElementById('reg-step1').classList.add('hidden');
     document.getElementById('reg-step2').classList.remove('hidden');
     watchApproval(phone);
@@ -905,7 +933,10 @@ document.getElementById('btn-reg-back').addEventListener('click', ()=>{
 document.getElementById('btn-reg-resend').addEventListener('click', async ()=>{
   if(!pendingReg) return;
   const approveUrl = `${location.origin}${location.pathname}?approve=${pendingReg.phone}`;
-  await sendTelegramText(`🔁 ድጋሚ የመዳረሻ ጥያቄ\n👤 ስም: ${pendingReg.name}\n📱 ስልክ: ${pendingReg.phone}\n🏠 አድራሻ: ${pendingReg.address}${pendingReg.isAdmin ? '\n⚠️ አድሚን ለመሆን ጠይቋል' : ''}\n\nለማጽደቅ ይንኩ፦\n${approveUrl}`);
+  await sendTelegramTextWithButton(
+    `🔁 ድጋሚ የመዳረሻ ጥያቄ\n👤 ስም: ${pendingReg.name}\n📱 ስልክ: ${pendingReg.phone}\n🏠 አድራሻ: ${pendingReg.address}${pendingReg.isAdmin ? '\n⚠️ አድሚን ለመሆን ጠይቋል' : ''}`,
+    '✅ ተቀበል', approveUrl
+  );
   showAuthError('ጥያቄው እንደገና ተልኳል።');
 });
 
@@ -1261,6 +1292,9 @@ document.getElementById('btn-copy-acct').addEventListener('click', ()=> copyText
 document.getElementById('btn-copy').addEventListener('click', ()=> copyText(document.getElementById('output').textContent));
 
 function resetFormDraft(){
+  editingReportId = null;
+  document.getElementById('edit-banner').classList.add('hidden');
+  document.getElementById('btn-save').textContent = 'ሪፖርት አመንጭ እና ላክ';
   document.getElementById('f-date').value = todayISO();
   updateDayName();
   document.getElementById('f-jobcount').value = 0;
@@ -1275,6 +1309,26 @@ function resetFormDraft(){
   document.getElementById('output').textContent = 'ገና ምንም ሪፖርት አልተፈጠረም። ከላይ "ሪፖርት አመንጭ እና ላክ" የሚለውን ይጫኑ።';
 }
 document.getElementById('btn-clear').addEventListener('click', resetFormDraft);
+document.getElementById('btn-edit-cancel').addEventListener('click', resetFormDraft);
+
+function startEditReport(r){
+  editingReportId = r.id;
+  document.getElementById('edit-banner').classList.remove('hidden');
+  document.getElementById('btn-save').textContent = 'ለውጦችን አስቀምጥ';
+  document.getElementById('f-date').value = r.date || todayISO();
+  updateDayName();
+  document.getElementById('f-jobcount').value = r.jobcount || 0;
+  renderJobs();
+  document.getElementById('f-income').value = r.income || 0;
+  document.getElementById('f-expense').value = r.expense || 0;
+  document.getElementById('f-expense-detail').value = '';
+  document.getElementById('f-share').value = 0;
+  document.getElementById('f-notes').value = '';
+  clearUploads();
+  updateFinance();
+  document.getElementById('output').textContent = r.text || '';
+  document.getElementById('app-screen').scrollIntoView({behavior:'smooth'});
+}
 
 // Auto-clear unsaved draft at local midnight
 let currentFormDay = new Date().toDateString();
@@ -1317,18 +1371,26 @@ document.getElementById('btn-save').addEventListener('click', async ()=>{
 
   const btn = document.getElementById('btn-save');
   isSaving = true;
-  btn.disabled = true; 
-  btn.textContent = 'በመላክ ላይ...';
+  btn.disabled = true;
+  btn.textContent = editingReportId ? 'በማስቀመጥ ላይ...' : 'በመላክ ላይ...';
 
   try{
-    const newDoc = doc(collection(db,'reports'));
-    await setDoc(newDoc, entry);
-    await sendTelegramReportPhotos(entry.workerName, entry.date, text);
+    if(editingReportId){
+      await setDoc(doc(db,'reports',editingReportId), entry, { merge: true });
+    }else{
+      const newDoc = doc(collection(db,'reports'));
+      await setDoc(newDoc, entry);
+      await sendTelegramReportPhotos(entry.workerName, entry.date, text);
+    }
     lastSavedText = text;
-    
+
     // ፎቶዎች በራሳቸው አይጠፉም (አዲስ ዳታ እስካልገባ/አጽዳ እስካልተባለ)
     const saveMsg = document.getElementById('save-msg');
     saveMsg.style.display='block'; setTimeout(()=>{saveMsg.style.display='none';}, 3000);
+    if(editingReportId){
+      editingReportId = null;
+      document.getElementById('edit-banner').classList.add('hidden');
+    }
   }catch(e){
     console.error(e);
     alert('ሪፖርት ማስቀመጥ አልተቻለም፣ ግንኙነትዎን ያረጋግጡ።');
@@ -1527,9 +1589,9 @@ if(btnMrSend) btnMrSend.addEventListener('click', async ()=>{
   const { blob, rows } = monthlyReportBlob(monthStr);
   if(rows.length === 0){ showMrMsg('ለዚህ ወር ምንም ሪፖርት አልተገኘም።', true); return; }
   btnMrSend.disabled = true; btnMrSend.textContent = 'በመላክ ላይ...';
-  await sendTelegramDocument(blob, monthFilename(monthStr), `📊 ወርሃዊ ሪፖርት — ${monthStr}`);
+  const sent = await sendTelegramDocument(blob, monthFilename(monthStr), `📊 ወርሃዊ ሪፖርት — ${monthStr}`);
   btnMrSend.disabled = false; btnMrSend.textContent = '📨 ወደ ቴሌግራም ላክ';
-  showMrMsg('ወደ ቴሌግራም ተልኳል።', false);
+  showMrMsg(sent ? 'ወደ ቴሌግራም ተልኳል።' : 'መላክ አልተሳካም፣ እንደገና ይሞክሩ።', !sent);
 });
 
 // ---- Auto Cleanup ----
@@ -1570,10 +1632,17 @@ async function checkAutoMonthlyReport(){
     if(!sentMonths.includes(targetMonth)){
       const { blob, rows } = monthlyReportBlob(targetMonth);
       if(rows.length > 0){
-        await sendTelegramDocument(blob, monthFilename(targetMonth), `📊 ወርሃዊ ሪፖርት (ራስ-ሰር) — ${targetMonth}`);
-        await deleteReportsForMonth(targetMonth);
+        const sent = await sendTelegramDocument(blob, monthFilename(targetMonth), `📊 ወርሃዊ ሪፖርት (ራስ-ሰር) — ${targetMonth}`);
+        if(sent){
+          await deleteReportsForMonth(targetMonth);
+          await setDoc(metaRef, { sentMonths: [...sentMonths, targetMonth] }, { merge: true });
+        }else{
+          console.error(`Monthly report send failed for ${targetMonth}; will retry next time, data NOT deleted.`);
+          monthlyAutoCheckDone = false;
+        }
+      }else{
+        await setDoc(metaRef, { sentMonths: [...sentMonths, targetMonth] }, { merge: true });
       }
-      await setDoc(metaRef, { sentMonths: [...sentMonths, targetMonth] }, { merge: true });
     }
   }catch(e){
     console.error('Auto monthly report error', e);
@@ -1611,6 +1680,7 @@ function renderHistory(){
         <div class="meta"><span class="d">${r.date}</span> · ${r.day}${currentUser.isAdmin ? ' · ' + escapeAttr(r.workerName) : ''} · ${r.jobcount} ስራዎች · ትርፍ ${r.profit} ብር${((r.warrantyCount||0)+(r.receiptCount||0))>0 ? ' · 📎 ' + ((r.warrantyCount||0)+(r.receiptCount||0)) : ''}</div>
         <div class="hist-actions">
           <button type="button" class="ghost small" data-view="${r.id}">ተመልከት</button>
+          <button type="button" class="ghost small" data-edit="${r.id}">አርም</button>
           <button type="button" class="ghost small" data-del="${r.id}">ሰርዝ</button>
         </div>
       </div>
@@ -1631,12 +1701,19 @@ function renderHistory(){
 document.getElementById('history').addEventListener('click', async (e)=>{
   const viewBtn = e.target.closest('[data-view]');
   const delBtn = e.target.closest('[data-del]');
+  const editBtn = e.target.closest('[data-edit]');
   if(viewBtn){
     const r = allReports.find(x=>x.id===viewBtn.dataset.view);
     if(!r) return;
     if(!currentUser.isAdmin && r.workerPhone !== currentUser.phone) return;
     document.getElementById('output').textContent = r.text;
     document.getElementById('output').scrollIntoView({behavior:'smooth'});
+  }
+  if(editBtn){
+    const r = allReports.find(x=>x.id===editBtn.dataset.edit);
+    if(!r) return;
+    if(!currentUser.isAdmin && r.workerPhone !== currentUser.phone) return;
+    startEditReport(r);
   }
   if(delBtn){
     const r = allReports.find(x=>x.id===delBtn.dataset.del);
@@ -1650,8 +1727,14 @@ document.getElementById('history').addEventListener('click', async (e)=>{
 // ---- User Management ----
 function renderUsersList(){
   const box = document.getElementById('users-list');
+  const searchInput = document.getElementById('users-search');
+  const q = (searchInput ? searchInput.value : '').trim().toLowerCase();
+  const filtered = q
+    ? allUsers.filter(u => (u.name||'').toLowerCase().includes(q) || (u.id||'').includes(q))
+    : allUsers;
   if(allUsers.length === 0){ box.innerHTML = '<div class="empty">ምንም የተመዘገበ ተጠቃሚ የለም።</div>'; return; }
-  box.innerHTML = allUsers.map(u => {
+  if(filtered.length === 0){ box.innerHTML = '<div class="empty">ምንም ግጥሚያ አልተገኘም።</div>'; return; }
+  box.innerHTML = filtered.map(u => {
     const reportCount = allReports.filter(r=>r.workerPhone === u.id).length;
     return `
     <div class="hist-item">
@@ -1662,6 +1745,7 @@ function renderUsersList(){
     </div>`;
   }).join('');
 }
+document.getElementById('users-search').addEventListener('input', renderUsersList);
 document.getElementById('users-list').addEventListener('click', async (e)=>{
   const btn = e.target.closest('[data-rmuser]');
   if(!btn) return;
@@ -1791,6 +1875,18 @@ async function checkApprovalLink(){
   }catch(e){ console.error('approval check failed', e); }
 }
 
+// ---- Admin sections accordion ----
+document.querySelectorAll('#admin-section > .admin-accordion-title').forEach(title=>{
+  const card = title.nextElementSibling;
+  if(!card) return;
+  card.classList.add('hidden');
+  title.classList.add('collapsed');
+  title.addEventListener('click', ()=>{
+    card.classList.toggle('hidden');
+    title.classList.toggle('collapsed');
+  });
+});
+
 // ---- Auto-login (stay signed in after refresh) ----
 (async function tryAutoLogin(){
   let savedPhone = null;
@@ -1809,4 +1905,4 @@ async function checkApprovalLink(){
 })();
 </script>
 </body>
-  </html>
+          </html>
