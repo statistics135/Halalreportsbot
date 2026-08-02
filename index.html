@@ -539,6 +539,7 @@ import {
   getFirestore, collection, doc, setDoc, getDoc, getDocs,
   deleteDoc, onSnapshot, query, where
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-messaging.js";
 
 // ---- Light/Dark theme toggle ----
 const themeToggleBtn = document.getElementById('theme-toggle');
@@ -556,9 +557,12 @@ themeToggleBtn.addEventListener('click', ()=>{
 });
 
 // ---- PWA: installable app + service worker ----
+let swRegistration = null;
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('service-worker.js').catch(err=>console.error('SW register failed', err));
+    navigator.serviceWorker.register('service-worker.js')
+      .then(reg=>{ swRegistration = reg; })
+      .catch(err=>console.error('SW register failed', err));
   });
 }
 let deferredInstallPrompt = null;
@@ -600,6 +604,37 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const VAPID_KEY = 'BKLgvz4zGSOpIJQDj9g32_gXlt0sARWcrWFT1Pdz9UQ1tGJoxXDs5fEd-MmJ8NQHa_mtcTB7kL13djMl7mq2_1c';
+let messaging = null;
+try{ messaging = getMessaging(app); }catch(e){ console.error('Messaging init failed', e); }
+
+async function setupPushNotifications(){
+  if(!messaging || !('Notification' in window) || !currentUser) return;
+  try{
+    let permission = Notification.permission;
+    if(permission === 'default'){ permission = await Notification.requestPermission(); }
+    if(permission !== 'granted') return;
+    if(!swRegistration){
+      try{ swRegistration = await navigator.serviceWorker.ready; }catch(e){ /* no SW available */ }
+    }
+    const token = await getToken(messaging, {
+      vapidKey: VAPID_KEY,
+      serviceWorkerRegistration: swRegistration || undefined
+    });
+    if(token){
+      await setDoc(doc(db,'users',currentUser.phone), { fcmToken: token }, { merge: true });
+    }
+  }catch(e){ console.error('Push notification setup failed', e); }
+}
+if(messaging){
+  onMessage(messaging, (payload)=>{
+    const title = (payload.notification && payload.notification.title) || 'መልእክት ደርሶዎታል';
+    const body = (payload.notification && payload.notification.body) || '';
+    if(Notification.permission === 'granted'){
+      try{ new Notification(title, { body, icon: 'icon-192.png' }); }catch(e){}
+    }
+  });
+}
 
 const ADMIN_SECRET = 'FUAD-ADMIN-2026';
 const TELEGRAM_BOT_TOKEN = '8816155815:AAGaxgc9bhIGjqLAxNTMvvFZq7StXRZ6Pus';
@@ -955,6 +990,7 @@ function enterApp(){
   document.getElementById('history-title').textContent = currentUser.isAdmin ? 'ሁሉም ሪፖርቶች' : 'የኔ ያለፉ ሪፖርቶች';
 
   resetFormDraft();
+  setupPushNotifications();
 
   const reportsQuery = currentUser.isAdmin
     ? query(collection(db,'reports'))
@@ -1710,4 +1746,4 @@ document.getElementById('btn-msg-close').addEventListener('click', ()=>{
 });
 </script>
 </body>
-  </html>
+        </html>
