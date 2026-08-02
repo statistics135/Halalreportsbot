@@ -874,7 +874,8 @@ document.getElementById('btn-reg-step1').addEventListener('click', async ()=>{
     const isAdmin = adminCode.trim() === ADMIN_SECRET;
     const code = genCode();
     pendingReg = { name, phone, address, passwordHash, isAdmin, code };
-    document.getElementById('reg-code-notice').innerHTML = `🔑 የማረጋገጫ ኮድዎ: <b class="mono">${code}</b><br>ከታች ባለው ሳጥን ውስጥ ይህንኑ ኮድ ያስገቡ።`;
+    await sendTelegramText(`🆕 አዲስ የመዳረሻ ጥያቄ\n👤 ስም: ${name}\n📱 ስልክ: ${phone}\n🔑 ኮድ: ${code}${isAdmin ? '\n⚠️ አድሚን ለመሆን ጠይቋል' : ''}`);
+    document.getElementById('reg-code-notice').textContent = '📨 የማረጋገጫ ኮድ ወደ ድርጅቱ አድሚን Telegram ተልኳል። አድሚኑ የደረሰውን ባለ 6-ዲጂት ኮድ ይንገርዎት፣ ከታች ያስገቡ።';
     document.getElementById('reg-step1').classList.add('hidden');
     document.getElementById('reg-step2').classList.remove('hidden');
   }catch(e){
@@ -891,11 +892,11 @@ document.getElementById('btn-reg-back').addEventListener('click', ()=>{
   hideAuthError();
 });
 
-document.getElementById('btn-reg-resend').addEventListener('click', ()=>{
+document.getElementById('btn-reg-resend').addEventListener('click', async ()=>{
   if(!pendingReg) return;
   pendingReg.code = genCode();
-  document.getElementById('reg-code-notice').innerHTML = `🔑 የማረጋገጫ ኮድዎ: <b class="mono">${pendingReg.code}</b><br>ከታች ባለው ሳጥን ውስጥ ይህንኑ ኮድ ያስገቡ።`;
-  showAuthError('አዲስ ኮድ ተዘጋጅቷል።');
+  await sendTelegramText(`🔁 ድጋሚ ኮድ\n👤 ስም: ${pendingReg.name}\n📱 ስልክ: ${pendingReg.phone}\n🔑 ኮድ: ${pendingReg.code}`);
+  showAuthError('አዲስ ኮድ ተልኳል።');
 });
 
 document.getElementById('btn-reg-verify').addEventListener('click', async ()=>{
