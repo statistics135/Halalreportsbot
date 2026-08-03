@@ -49,9 +49,22 @@
   }
   .plate h1{margin:0;font-size:19px;font-weight:700;color:#ffffff;text-shadow:0 1px 2px rgba(0,0,0,0.5);}
   .plate p{margin:4px 0 0;font-size:12.5px;color:#d1d5db;}
-  .theme-toggle-btn{position:absolute;top:12px;right:12px;z-index:2;font-size:16px;}
-  .install-btn{position:absolute;top:12px;right:52px;z-index:2;font-size:16px;}
-  .msg-btn-inline{position:relative;}
+  .header-menu-wrap{position:absolute;top:12px;right:12px;z-index:5;}
+  .menu-toggle-btn{position:relative;}
+  .header-menu{
+    position:absolute;top:40px;right:0;min-width:210px;
+    background:var(--panel);border:1px solid var(--line-strong);border-radius:8px;
+    box-shadow:0 8px 24px rgba(0,0,0,.4);padding:6px;display:flex;flex-direction:column;gap:2px;
+  }
+  .header-menu.hidden{display:none;}
+  .menu-item{
+    display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+    background:transparent;border:none;border-radius:6px;padding:9px 10px;font-size:13.5px;
+    color:var(--text);cursor:pointer;position:relative;
+  }
+  .menu-item:hover{background:var(--card);border-color:transparent;}
+  .menu-item .msg-badge{position:static;margin-left:auto;}
+  .menu-sep{height:1px;background:var(--line);margin:4px 2px;}
   .msg-badge{
     position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;
     background:var(--red);border:1.5px solid var(--panel);color:#fff;font-size:10px;font-weight:700;
@@ -64,7 +77,6 @@
   .session-bar{display:flex;justify-content:space-between;align-items:center;margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 16px;flex-wrap:wrap;gap:8px;}
   .session-bar .who{font-size:13px;}
   .session-bar .who .name{font-weight:600;}
-  .session-actions{display:flex;align-items:center;gap:8px;}
   .icon-btn{
     width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center;
     font-size:15px;border-radius:5px;border:1px solid var(--line-strong);background:var(--card);color:var(--text);cursor:pointer;
@@ -212,8 +224,17 @@
 <div class="wrap">
 
   <div class="plate">
-    <button type="button" class="icon-btn theme-toggle-btn" id="theme-toggle" title="ገፅታ ቀይር (ነጭ/ጥቁር)">🌙</button>
-    <button type="button" class="icon-btn install-btn hidden" id="install-app-btn" title="እንደ መተግበሪያ ጫን">📲</button>
+    <div class="header-menu-wrap">
+      <button type="button" class="icon-btn menu-toggle-btn" id="menu-toggle-btn" title="ምናሌ">☰<span class="msg-badge hidden" id="menu-badge-dot"></span></button>
+      <div class="header-menu hidden" id="header-menu">
+        <button type="button" class="menu-item" id="theme-toggle"><span class="menu-icon">🌙</span> <span>ገፅታ ቀይር</span></button>
+        <button type="button" class="menu-item hidden" id="install-app-btn">📲 <span>እንደ መተግበሪያ ጫን</span></button>
+        <div class="menu-sep hidden" id="menu-sep-session"></div>
+        <button type="button" class="menu-item hidden" id="btn-open-messages">💬 <span>መልእክቶች</span><span class="msg-badge hidden" id="msg-badge"></span></button>
+        <button type="button" class="menu-item hidden" id="btn-open-changepass">🔑 <span>ፓስወርድ ቀይር</span></button>
+        <button type="button" class="menu-item hidden" id="btn-logout">🚪 <span>ውጣ</span></button>
+      </div>
+    </div>
     <h1>📋 የሀላል ዕለታዊ የባለሙያ ሪፖርት</h1>
     <p>ዕለታዊ የስራ፣ ገቢ እና ወጪ ማጠቃለያ — ለድርጅት ማስተላለፊያ</p>
   </div>
@@ -270,7 +291,7 @@
             <input type="password" id="reg-admin-code" placeholder="ለመደበኛ ሠራተኛ ባዶ ይተውት">
           </div>
           <div class="form-actions">
-            <button type="button" class="primary" id="btn-reg-step1">ቀጣይ — ኮድ ላክ</button>
+            <button type="button" class="primary" id="btn-reg-step1">ቀጣይ — ጥያቄ ላክ</button>
           </div>
         </div>
 
@@ -294,11 +315,6 @@
       <div class="who">
         <span class="name" id="who-name"></span>
         <span id="who-badge"></span>
-      </div>
-      <div class="session-actions">
-        <button type="button" class="icon-btn msg-btn-inline" id="btn-open-messages" title="መልእክቶች">💬<span class="msg-badge hidden" id="msg-badge"></span></button>
-        <button type="button" class="icon-btn" id="btn-open-changepass" title="ፓስወርድ ቀይር">🔑</button>
-        <button type="button" class="ghost small" id="btn-logout">ውጣ</button>
       </div>
     </div>
 
@@ -565,13 +581,30 @@ let isLightTheme = false;
 try{ isLightTheme = localStorage.getItem('halal-theme') === 'light'; }catch(e){}
 function applyTheme(light){
   document.body.classList.toggle('light-theme', light);
-  themeToggleBtn.textContent = light ? '☀️' : '🌙';
+  themeToggleBtn.querySelector('.menu-icon').textContent = light ? '☀️' : '🌙';
 }
 applyTheme(isLightTheme);
 themeToggleBtn.addEventListener('click', ()=>{
   isLightTheme = !isLightTheme;
   applyTheme(isLightTheme);
   try{ localStorage.setItem('halal-theme', isLightTheme ? 'light' : 'dark'); }catch(e){}
+});
+
+// ---- Header hamburger menu ----
+const menuToggleBtn = document.getElementById('menu-toggle-btn');
+const headerMenu = document.getElementById('header-menu');
+menuToggleBtn.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  headerMenu.classList.toggle('hidden');
+});
+headerMenu.addEventListener('click', (e)=>{
+  // ማንኛውም ንጥል (menu-item) ከተጫነ ምናሌው ራሱ ይዘጋ
+  if(e.target.closest('.menu-item')) headerMenu.classList.add('hidden');
+});
+document.addEventListener('click', (e)=>{
+  if(!headerMenu.classList.contains('hidden') && !e.target.closest('.header-menu-wrap')){
+    headerMenu.classList.add('hidden');
+  }
 });
 
 // ---- PWA: installable app + service worker ----
@@ -900,7 +933,7 @@ document.getElementById('btn-reg-step1').addEventListener('click', async ()=>{
     const snap = await getDoc(doc(db,'users',phone));
     if(snap.exists()){
       showAuthError('ይህ ስልክ ቁጥር ቀድሞ ተመዝግቧል። "ግባ" የሚለውን ይጠቀሙ።');
-      btn.disabled = false; btn.textContent = 'ቀጣይ — ኮድ ላክ';
+      btn.disabled = false; btn.textContent = 'ቀጣይ — ጥያቄ ላክ';
       return;
     }
     const passwordHash = await sha256(pass);
@@ -919,7 +952,7 @@ document.getElementById('btn-reg-step1').addEventListener('click', async ()=>{
     console.error(e);
     showAuthError('ግንኙነት ላይ ችግር ተፈጥሯል።');
   }
-  btn.disabled = false; btn.textContent = 'ቀጣይ — ኮድ ላክ';
+  btn.disabled = false; btn.textContent = 'ቀጣይ — ጥያቄ ላክ';
 });
 
 document.getElementById('btn-reg-back').addEventListener('click', ()=>{
@@ -963,6 +996,12 @@ document.getElementById('btn-logout').addEventListener('click', ()=>{
   if(messagesUnsub){ messagesUnsub(); messagesUnsub = null; }
   allMessages = [];
   document.getElementById('msg-badge').classList.add('hidden');
+  document.getElementById('menu-badge-dot').classList.add('hidden');
+  document.getElementById('menu-sep-session').classList.add('hidden');
+  document.getElementById('btn-open-messages').classList.add('hidden');
+  document.getElementById('btn-open-changepass').classList.add('hidden');
+  document.getElementById('btn-logout').classList.add('hidden');
+  document.getElementById('header-menu').classList.add('hidden');
   reportsLoadedOnce = false;
   usersLoadedOnce = false;
   monthlyAutoCheckDone = false;
@@ -1026,6 +1065,10 @@ function enterApp(){
     ? '<span class="badge-admin">አድሚን</span>' : '<span class="badge-worker">ሠራተኛ</span>';
   document.getElementById('admin-section').classList.toggle('hidden', !currentUser.isAdmin);
   document.getElementById('history-title').textContent = currentUser.isAdmin ? 'ሁሉም ሪፖርቶች' : 'የኔ ያለፉ ሪፖርቶች';
+  document.getElementById('menu-sep-session').classList.remove('hidden');
+  document.getElementById('btn-open-messages').classList.remove('hidden');
+  document.getElementById('btn-open-changepass').classList.remove('hidden');
+  document.getElementById('btn-logout').classList.remove('hidden');
 
   resetFormDraft();
   setupPushNotifications();
@@ -1800,10 +1843,12 @@ function relevantMessages(){
 }
 function updateMessageBadge(){
   const badge = document.getElementById('msg-badge');
-  if(!currentUser){ badge.classList.add('hidden'); return; }
+  const dot = document.getElementById('menu-badge-dot');
+  if(!currentUser){ badge.classList.add('hidden'); dot.classList.add('hidden'); return; }
   const unread = relevantMessages().filter(m => !(m.readBy||[]).includes(currentUser.phone));
   badge.textContent = unread.length > 9 ? '9+' : String(unread.length);
   badge.classList.toggle('hidden', unread.length === 0);
+  dot.classList.toggle('hidden', unread.length === 0);
 }
 function renderMessagesList(){
   const box = document.getElementById('messages-list');
