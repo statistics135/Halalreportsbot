@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>የደንበኛ አገልግሎት ጥያቄ</title>
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14171A; --panel:#1B1F23; --card:#21262B;
+    --amber:#F5A623; --amber-dim:#4A3A19;
+    --green:#4CAF6D; --green-dim:#1E3A28;
+    --red:#E4572E; --red-dim:#3A2018;
+    --text:#ECECE9; --text-2:#9AA3AB; --text-3:#63696F;
+    --line:#2E343A; --line-strong:#3A4147;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Noto Sans Ethiopic',sans-serif;line-height:1.6;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .wrap{max-width:640px;margin:0 auto;padding:26px 18px 80px;}
+  .hidden{display:none !important;}
+
+  .plate{
+    background:linear-gradient(180deg,#20252A,#191D21);
+    border:1px solid var(--line-strong);border-radius:6px;
+    padding:20px 22px;position:relative;overflow:hidden;
+  }
+  .plate::before{
+    content:"";position:absolute;top:0;left:0;right:0;height:3px;
+    background:repeating-linear-gradient(135deg,var(--amber) 0 10px,#1a1a1a 10px 20px);
+  }
+  .plate h1{margin:0;font-size:19px;font-weight:700;color:#ffffff;text-shadow:0 1px 2px rgba(0,0,0,0.5);}
+  .plate p{margin:4px 0 0;font-size:12.5px;color:#d1d5db;}
+
+  .tabs{display:flex;gap:8px;margin:20px 0 16px;}
+  .tab{flex:1;text-align:center;padding:10px;border-radius:5px;border:1px solid var(--line-strong);cursor:pointer;font-size:13px;color:var(--text-2);}
+  .tab.active{background:var(--amber-dim);color:var(--amber);border-color:var(--amber);}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:18px 20px;margin-bottom:16px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--text-2);margin-bottom:5px;}
+  input,select,textarea{
+    width:100%;background:var(--card);border:1px solid var(--line-strong);border-radius:4px;
+    color:var(--text);font-family:'Noto Sans Ethiopic',sans-serif;font-size:14px;padding:9px 10px;
+  }
+  textarea{resize:vertical;min-height:70px;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber);}
+
+  .radio-group{display:flex;gap:10px;}
+  .radio-opt{
+    flex:1;text-align:center;padding:10px;border-radius:5px;border:1px solid var(--line-strong);
+    cursor:pointer;font-size:13.5px;color:var(--text-2);
+  }
+  .radio-opt.active{background:var(--amber-dim);color:var(--amber);border-color:var(--amber);}
+
+  .upload-label{display:block;font-size:13px;color:var(--text-2);margin-bottom:8px;}
+  .upload-btn{
+    display:inline-block;background:var(--card);border:1px dashed var(--line-strong);
+    border-radius:5px;padding:9px 16px;font-size:12.5px;color:var(--amber);cursor:pointer;
+  }
+  .thumb-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .thumb{position:relative;width:70px;height:70px;border-radius:5px;overflow:hidden;border:1px solid var(--line-strong);}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .thumb .rm{
+    position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;
+    background:rgba(0,0,0,.7);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;border:none;padding:0;
+  }
+
+  .form-actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end;}
+  button{
+    font-family:'Noto Sans Ethiopic',sans-serif;font-size:13.5px;border-radius:5px;padding:10px 18px;
+    cursor:pointer;border:1px solid var(--line-strong);background:var(--card);color:var(--text);
+  }
+  button:hover{border-color:var(--amber);}
+  button.primary{background:var(--amber);color:#241a05;border-color:var(--amber);font-weight:600;width:100%;}
+  button.primary:hover{background:#ffb748;}
+  button.primary:disabled{opacity:.5;cursor:not-allowed;}
+
+  .notice{background:var(--card);border:1px solid var(--line-strong);border-radius:5px;padding:12px 14px;font-size:12.5px;color:var(--text-2);}
+  .error-msg{color:var(--red);font-size:12.5px;margin-top:10px;display:none;}
+  .success-msg{color:var(--green);font-size:13px;margin-top:10px;display:none;}
+  .empty{text-align:center;padding:30px 20px;color:var(--text-3);border:1px dashed var(--line-strong);border-radius:6px;font-size:13px;}
+
+  .req-item{background:var(--card);border:1px solid var(--line-strong);border-radius:6px;padding:14px 16px;margin-bottom:10px;}
+  .req-item .top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+  .req-item .date{font-size:11.5px;color:var(--text-2);font-family:'JetBrains Mono',monospace;}
+  .status-tag{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;}
+  .status-pending{background:var(--amber-dim);color:var(--amber);}
+  .status-assigned{background:#1e3a5f;color:#79b6f0;}
+  .status-completed{background:var(--green-dim);color:var(--green);}
+  .req-item .desc{margin-top:8px;font-size:13.5px;}
+  .req-item .worker{margin-top:6px;font-size:12.5px;color:var(--text-2);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="plate">
+    <h1>🛠️ የደንበኛ አገልግሎት ጥያቄ</h1>
+    <p>የተበላሸ እቃ ጥገና ጥያቄ ያስገቡ ወይም ያለውን ጥያቄ ይከታተሉ</p>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="new">🆕 አዲስ ጥያቄ</div>
+    <div class="tab" data-tab="status">🔍 የኔን ጥያቄ ፈትሽ</div>
+  </div>
+
+  <!-- NEW REQUEST -->
+  <div id="tab-new">
+    <div class="card">
+      <div class="field">
+        <label>👤 ሙሉ ስም</label>
+        <input type="text" id="c-name" placeholder="ሙሉ ስም">
+      </div>
+      <div class="field">
+        <label>📱 ስልክ ቁጥር (10 ዲጂት)</label>
+        <input type="tel" id="c-phone" class="mono" maxlength="10" placeholder="0912345678">
+      </div>
+      <div class="field">
+        <label>ጥያቄው</label>
+        <div class="radio-group">
+          <div class="radio-opt active" data-val="አዲስ">🆕 አዲስ</div>
+          <div class="radio-opt" data-val="ድጋሚ">🔁 ድጋሚ</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>🏠 አድራሻ</label>
+        <select id="c-address"><option value="">-- አድራሻ ይምረጡ --</option></select>
+        <div class="notice hidden" id="c-no-address" style="margin-top:8px;"></div>
+      </div>
+      <div class="field">
+        <label>🔧 የብልሽት ሁኔታ</label>
+        <textarea id="c-issue" placeholder="ምን እንደተበላሸ/ችግሩ ምን እንደሆነ ይግለጹ..."></textarea>
+      </div>
+      <div class="field">
+        <label class="upload-label">📎 የተበላሸውን እቃ ፎቶ (ካለ)</label>
+        <label class="upload-btn" for="c-photo-file">📎 ፎቶ ይስቀሉ (ብዙ ፎቶ መምረጥ ይቻላል)</label>
+        <input type="file" id="c-photo-file" accept="image/*" multiple style="display:none;">
+        <div class="thumb-row" id="c-photo-preview"></div>
+      </div>
+      <div class="error-msg" id="c-error"></div>
+      <div class="success-msg" id="c-success"></div>
+      <div class="form-actions">
+        <button type="button" class="primary" id="btn-c-submit">ጥያቄ ላክ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATUS CHECK -->
+  <div id="tab-status" class="hidden">
+    <div class="card">
+      <div class="field">
+        <label>📱 ስልክ ቁጥርዎን ያስገቡ</label>
+        <input type="tel" id="s-phone" class="mono" maxlength="10" placeholder="0912345678">
+      </div>
+      <div class="form-actions">
+        <button type="button" class="primary" id="btn-s-search">ፈትሽ</button>
+      </div>
+    </div>
+    <div id="s-results"></div>
+  </div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+import {
+  getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where
+} from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAZ7MU2B58bWcu-8jH9Pvv5Ob9XGQyx4NU",
+  authDomain: "halal-report-2.firebaseapp.com",
+  projectId: "halal-report-2",
+  storageBucket: "halal-report-2.firebasestorage.app",
+  messagingSenderId: "242965792260",
+  appId: "1:242965792260:web:8dd83989172924f8c5d751"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const TELEGRAM_BOT_TOKEN = '8816155815:AAGaxgc9bhIGjqLAxNTMvvFZq7StXRZ6Pus';
+const TELEGRAM_CHAT_ID = '6853753240';
+
+function isValidPhone(p){ return /^\d{10}$/.test(p); }
+function escapeAttr(str){
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+// ---- Telegram helpers ----
+async function sendTelegramText(text){
+  try{
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text })
+    });
+  }catch(e){ console.error('Telegram error', e); }
+}
+async function sendTelegramTextWithButton(text, buttonText, buttonUrl){
+  try{
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID, text,
+        reply_markup: { inline_keyboard: [[{ text: buttonText, url: buttonUrl }]] }
+      })
+    });
+  }catch(e){ console.error('Telegram button message error', e); }
+}
+function dataURLtoBlob(dataUrl){
+  const parts = dataUrl.split(',');
+  const mimeMatch = parts[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+  const binary = atob(parts[1]);
+  const arr = new Uint8Array(binary.length);
+  for(let i=0; i<binary.length; i++){ arr[i] = binary.charCodeAt(i); }
+  return new Blob([arr], {type: mime});
+}
+async function sendTelegramPhoto(dataUrl, caption){
+  try{
+    const blob = dataURLtoBlob(dataUrl);
+    const formData = new FormData();
+    formData.append('chat_id', TELEGRAM_CHAT_ID);
+    formData.append('caption', caption);
+    formData.append('photo', blob, 'photo.jpg');
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, { method:'POST', body: formData });
+  }catch(e){ console.error('Telegram photo error', e); }
+}
+async function sendTelegramMediaGroup(images, captions){
+  try{
+    const formData = new FormData();
+    formData.append('chat_id', TELEGRAM_CHAT_ID);
+    const media = images.map((img, i)=>{
+      const field = `photo${i}`;
+      formData.append(field, dataURLtoBlob(img), `photo${i}.jpg`);
+      return { type: 'photo', media: `attach://${field}`, caption: captions[i] || '' };
+    });
+    formData.append('media', JSON.stringify(media));
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMediaGroup`, { method:'POST', body: formData });
+  }catch(e){ console.error('Telegram media group error', e); }
+}
+
+// ---- Tabs ----
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-new').classList.toggle('hidden', tab.dataset.tab!=='new');
+    document.getElementById('tab-status').classList.toggle('hidden', tab.dataset.tab!=='status');
+  });
+});
+
+// ---- Request type radio ----
+let requestType = 'አዲስ';
+document.querySelectorAll('.radio-opt').forEach(opt=>{
+  opt.addEventListener('click', ()=>{
+    document.querySelectorAll('.radio-opt').forEach(o=>o.classList.remove('active'));
+    opt.classList.add('active');
+    requestType = opt.dataset.val;
+  });
+});
+
+// ---- Load service areas (safe subset, no passwords) ----
+let serviceAreas = [];
+async function loadServiceAreas(){
+  try{
+    const snap = await getDocs(collection(db,'serviceAreas'));
+    serviceAreas = [];
+    snap.forEach(d=> serviceAreas.push({ id:d.id, ...d.data() }));
+    const sel = document.getElementById('c-address');
+    const seen = new Set();
+    let opts = '<option value="">-- አድራሻ ይምረጡ --</option>';
+    serviceAreas.forEach(a=>{
+      if(!a.address || seen.has(a.address)) return;
+      seen.add(a.address);
+      opts += `<option value="${escapeAttr(a.address)}">${escapeAttr(a.address)}</option>`;
+    });
+    sel.innerHTML = opts;
+    if(serviceAreas.length === 0){
+      const notice = document.getElementById('c-no-address');
+      notice.textContent = '⚠️ በአሁኑ ጊዜ ምንም የተመዘገበ የአገልግሎት አካባቢ የለም። እባክዎ ቆይተው ይሞክሩ ወይም በቀጥታ ይደውሉ።';
+      notice.classList.remove('hidden');
+    }
+  }catch(e){ console.error('load service areas failed', e); }
+}
+loadServiceAreas();
+
+function findWorkerForAddress(address){
+  return serviceAreas.find(a=>a.address === address) || null;
+}
+
+// ---- Photo upload ----
+let issueImages = [];
+function compressImage(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const maxDim = 900;
+        let w = img.width, h = img.height;
+        if(w > maxDim || h > maxDim){
+          if(w > h){ h = Math.round(h * maxDim / w); w = maxDim; }
+          else{ w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function renderThumbs(){
+  const box = document.getElementById('c-photo-preview');
+  box.innerHTML = issueImages.map((src,i)=>`
+    <div class="thumb"><img src="${src}"><button type="button" class="rm" data-idx="${i}">✕</button></div>
+  `).join('');
+}
+document.getElementById('c-photo-preview').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.rm'); if(!btn) return;
+  issueImages.splice(Number(btn.dataset.idx),1);
+  renderThumbs();
+});
+document.getElementById('c-photo-file').addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files || []);
+  for(const f of files){ try{ issueImages.push(await compressImage(f)); }catch(err){ console.error(err); } }
+  renderThumbs();
+  e.target.value = '';
+});
+
+// ---- Submit new request ----
+function showCError(msg){
+  const el = document.getElementById('c-error');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('c-success').style.display = 'none';
+}
+document.getElementById('btn-c-submit').addEventListener('click', async ()=>{
+  document.getElementById('c-error').style.display = 'none';
+  document.getElementById('c-success').style.display = 'none';
+
+  const name = document.getElementById('c-name').value.trim();
+  const phone = document.getElementById('c-phone').value.trim();
+  const address = document.getElementById('c-address').value;
+  const issue = document.getElementById('c-issue').value.trim();
+
+  if(!name){ showCError('ስም ያስገቡ።'); return; }
+  if(!isValidPhone(phone)){ showCError('ስልክ ቁጥር በትክክል 10 ዲጂት መሆን አለበት።'); return; }
+  if(!address){ showCError('አድራሻ ይምረጡ።'); return; }
+  if(!issue){ showCError('የብልሽት ሁኔታ ይግለጹ።'); return; }
+
+  const suggested = findWorkerForAddress(address);
+  const btn = document.getElementById('btn-c-submit');
+  btn.disabled = true; btn.textContent = 'በመላክ ላይ...';
+
+  try{
+    const newDoc = doc(collection(db,'serviceRequests'));
+    await setDoc(newDoc, {
+      customerName: name, customerPhone: phone, requestType,
+      address, issue,
+      suggestedWorkerPhone: suggested ? suggested.id : '',
+      suggestedWorkerName: suggested ? suggested.name : '',
+      status: 'pending',
+      photoCount: issueImages.length,
+      createdAt: Date.now()
+    });
+
+    const approveUrl = `${location.origin}${location.pathname.replace('customer.html','index.html')}?approveRequest=${newDoc.id}`;
+    const msgText = `🛠️ አዲስ የደንበኛ ጥያቄ (${requestType})\n👤 ስም: ${name}\n📱 ስልክ: ${phone}\n🏠 አድራሻ: ${address}\n🔧 ችግር: ${issue}${suggested ? `\n💡 የተጠቆመ ሰራተኛ: ${suggested.name}` : '\n⚠️ ለዚህ አድራሻ ሰራተኛ አልተገኘም'}`;
+
+    if(issueImages.length === 0){
+      await sendTelegramTextWithButton(msgText, '✅ ስራውን መድብ', approveUrl);
+    }else if(issueImages.length === 1){
+      await sendTelegramPhoto(issueImages[0], msgText);
+      await sendTelegramTextWithButton('👆 ከላይ ያለውን ጥያቄ ለማጽደቅ', '✅ ስራውን መድብ', approveUrl);
+    }else{
+      await sendTelegramText(msgText);
+      const captions = issueImages.map((img,i)=>`📎 ፎቶ ${i+1}/${issueImages.length} — ${name}`);
+      for(let i=0;i<issueImages.length;i+=10){
+        await sendTelegramMediaGroup(issueImages.slice(i,i+10), captions.slice(i,i+10));
+      }
+      await sendTelegramTextWithButton('👆 ከላይ ያለውን ጥያቄ ለማጽደቅ', '✅ ስራውን መድብ', approveUrl);
+    }
+
+    document.getElementById('c-success').textContent = '✅ ጥያቄዎ ተልኳል! በቅርቡ ይመለስልዎታል።';
+    document.getElementById('c-success').style.display = 'block';
+    document.getElementById('c-name').value = '';
+    document.getElementById('c-phone').value = '';
+    document.getElementById('c-address').value = '';
+    document.getElementById('c-issue').value = '';
+    issueImages = []; renderThumbs();
+  }catch(e){
+    console.error(e);
+    showCError('መላክ አልተቻለም፣ ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።');
+  }
+  btn.disabled = false; btn.textContent = 'ጥያቄ ላክ';
+});
+
+// ---- Status check ----
+function statusLabel(s){
+  if(s === 'pending') return { text: 'በመጠባበቅ ላይ', cls: 'status-pending' };
+  if(s === 'assigned') return { text: 'ለሰራተኛ ተመድቧል', cls: 'status-assigned' };
+  if(s === 'completed') return { text: 'ተጠናቅቋል', cls: 'status-completed' };
+  return { text: s, cls: 'status-pending' };
+}
+document.getElementById('btn-s-search').addEventListener('click', async ()=>{
+  const phone = document.getElementById('s-phone').value.trim();
+  const box = document.getElementById('s-results');
+  if(!isValidPhone(phone)){ box.innerHTML = '<div class="error-msg" style="display:block;">ስልክ ቁጥር በትክክል 10 ዲጂት መሆን አለበት።</div>'; return; }
+  box.innerHTML = '<div class="empty">በመፈለግ ላይ...</div>';
+  try{
+    const q = query(collection(db,'serviceRequests'), where('customerPhone','==',phone));
+    const snap = await getDocs(q);
+    if(snap.empty){ box.innerHTML = '<div class="empty">ምንም ጥያቄ አልተገኘም።</div>'; return; }
+    const items = [];
+    snap.forEach(d=> items.push({id:d.id, ...d.data()}));
+    items.sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
+    box.innerHTML = items.map(r=>{
+      const st = statusLabel(r.status);
+      const d = new Date(r.createdAt||0);
+      const dateStr = isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-GB');
+      const feedbackBox = (r.status === 'completed' && !r.feedback)
+        ? `<div class="field" style="margin-top:10px;">
+             <label>💬 አስተያየትዎ</label>
+             <textarea id="fb-${r.id}" placeholder="ስለ አገልግሎቱ አስተያየት ይስጡ..."></textarea>
+             <button type="button" class="primary" style="margin-top:8px;" data-feedback="${r.id}">አስተያየት ላክ</button>
+           </div>`
+        : (r.feedback ? `<div class="worker">💬 አስተያየትዎ: ${escapeAttr(r.feedback)}</div>` : '');
+      return `
+        <div class="req-item">
+          <div class="top">
+            <span class="date">${dateStr} · ${escapeAttr(r.requestType||'')}</span>
+            <span class="status-tag ${st.cls}">${st.text}</span>
+          </div>
+          <div class="desc">${escapeAttr(r.issue)}</div>
+          <div class="worker">🏠 ${escapeAttr(r.address)}${r.assignedWorkerName ? ` · 👷 ${escapeAttr(r.assignedWorkerName)}` : ''}</div>
+          ${feedbackBox}
+        </div>`;
+    }).join('');
+  }catch(e){
+    console.error(e);
+    box.innerHTML = '<div class="error-msg" style="display:block;">ፍለጋ አልተሳካም፣ እንደገና ይሞክሩ።</div>';
+  }
+});
+document.getElementById('s-results').addEventListener('click', async (e)=>{
+  const btn = e.target.closest('[data-feedback]');
+  if(!btn) return;
+  const id = btn.dataset.feedback;
+  const text = document.getElementById(`fb-${id}`).value.trim();
+  if(!text) return;
+  btn.disabled = true; btn.textContent = 'በመላክ ላይ...';
+  try{
+    await setDoc(doc(db,'serviceRequests',id), { feedback: text }, { merge: true });
+    document.getElementById('btn-s-search').click();
+  }catch(err){ console.error(err); btn.disabled = false; btn.textContent = 'አስተያየት ላክ'; }
+});
+</script>
+</body>
+  </html>
