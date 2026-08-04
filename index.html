@@ -521,9 +521,26 @@
         <div class="error-msg" id="sync-areas-msg"></div>
         <div class="history" id="service-requests-list"></div>
       </div>
+
+      <div class="section-title admin-accordion-title"><span class="num">14</span> 📢 ማስታወቂያ ሰሌዳ <span class="chevron">▾</span></div>
+      <div class="card">
+        <div class="field">
+          <label>ጽሁፍ</label>
+          <textarea id="ad-text" placeholder="የማስታወቂያ ጽሁፍ..."></textarea>
+        </div>
+        <div class="field">
+          <label>ሊንክ (ካለ፣ አማራጭ ነው)</label>
+          <input type="text" id="ad-link" placeholder="https://...">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="primary" id="btn-ad-add">ማስታወቂያ ጨምር</button>
+        </div>
+        <div class="error-msg" id="ad-msg"></div>
+        <div class="history" id="ads-list" style="margin-top:14px;"></div>
+      </div>
     </div>
 
-    <div class="section-title"><span class="num">14</span> <span id="history-title">የኔ ያለፉ ሪፖርቶች</span></div>
+    <div class="section-title"><span class="num">15</span> <span id="history-title">የኔ ያለፉ ሪፖርቶች</span></div>
     <div class="history" id="history"></div>
 
   </div>
@@ -780,6 +797,8 @@ let pendingRegUnsub = null;
 let allServiceRequests = [];
 let serviceRequestsUnsub = null;
 let approvalLinkCheckDone = false;
+let allAds = [];
+let adsUnsub = null;
 
 // ---- Helpers ----
 async function sha256(text){
@@ -1028,6 +1047,8 @@ document.getElementById('btn-logout').addEventListener('click', ()=>{
   if(serviceRequestsUnsub){ serviceRequestsUnsub(); serviceRequestsUnsub = null; }
   allServiceRequests = [];
   approvalLinkCheckDone = false;
+  if(adsUnsub){ adsUnsub(); adsUnsub = null; }
+  allAds = [];
   if(messagesUnsub){ messagesUnsub(); messagesUnsub = null; }
   allMessages = [];
   document.getElementById('msg-badge').classList.add('hidden');
@@ -1137,6 +1158,12 @@ function enterApp(){
       snap.forEach(d=> allServiceRequests.push({id:d.id, ...d.data()}));
       renderServiceRequestsList();
     }, (err)=>console.error('service requests listener error', err));
+
+    adsUnsub = onSnapshot(query(collection(db,'announcements')), (snap)=>{
+      allAds = [];
+      snap.forEach(d=> allAds.push({id:d.id, ...d.data()}));
+      renderAdsList();
+    }, (err)=>console.error('ads listener error', err));
   }
 
   messagesUnsub = onSnapshot(query(collection(db,'messages')), (snap)=>{
@@ -1822,8 +1849,9 @@ function renderUsersList(){
     const reportCount = allReports.filter(r=>r.workerPhone === u.id).length;
     return `
     <div class="hist-item">
-      <div class="meta">${escapeAttr(u.name)} — ${escapeAttr(u.id)} ${u.isAdmin ? '<span class="badge-admin">አድሚን</span>' : '<span class="badge-worker">ሠራተኛ</span>'} · ${reportCount} ሪፖርት</div>
+      <div class="meta">${escapeAttr(u.name)} — ${escapeAttr(u.id)} ${u.isAdmin ? '<span class="badge-admin">አድሚን</span>' : '<span class="badge-worker">ሠራተኛ</span>'}${u.isPremium ? ' <span class="badge-admin">⭐ ፕሪሚየም</span>' : ''} · ${reportCount} ሪፖርት</div>
       <div class="hist-actions">
+        ${!u.isAdmin ? `<button type="button" class="ghost small" data-premium="${u.id}" data-uname="${escapeAttr(u.name)}" data-cur="${u.isPremium?1:0}">${u.isPremium ? '⭐ ፕሪሚየም አጥፋ' : '⭐ ፕሪሚየም አድርግ'}</button>` : ''}
         ${u.id === currentUser.phone ? '<span style="font-size:11.5px;color:var(--text-3);">(እርስዎ)</span>' : `<button type="button" class="ghost small" data-rmuser="${u.id}" data-uname="${escapeAttr(u.name)}">አጥፋ</button>`}
       </div>
     </div>`;
@@ -1831,6 +1859,16 @@ function renderUsersList(){
 }
 document.getElementById('users-search').addEventListener('input', renderUsersList);
 document.getElementById('users-list').addEventListener('click', async (e)=>{
+  const premBtn = e.target.closest('[data-premium]');
+  if(premBtn){
+    const phone = premBtn.dataset.premium;
+    const next = premBtn.dataset.cur !== '1';
+    try{
+      await setDoc(doc(db,'users',phone), { isPremium: next }, { merge: true });
+      await setDoc(doc(db,'serviceAreas',phone), { isPremium: next }, { merge: true }).catch(()=>{});
+    }catch(err){ console.error(err); }
+    return;
+  }
   const btn = e.target.closest('[data-rmuser]');
   if(!btn) return;
   const ok = confirm(`"${btn.dataset.uname}" የተባለውን ተጠቃሚ ማጥፋት ይፈልጋሉ?`);
@@ -1956,7 +1994,7 @@ async function handleRegistrationApprovalLink(approvePhone){
           passwordHash: data.passwordHash, isAdmin: data.isAdmin, createdAt: Date.now()
         });
         if(!data.isAdmin){
-          await setDoc(doc(db,'serviceAreas',data.phone), { name: data.name, phone: data.phone, address: data.address || '' });
+          await setDoc(doc(db,'serviceAreas',data.phone), { name: data.name, phone: data.phone, address: data.address || '', isPremium: false });
         }
         await deleteDoc(doc(db,'pendingRegistrations',data.phone));
       }catch(e){ console.error(e); alert('ማጽደቅ አልተቻለም፣ እንደገና ይሞክሩ።'); }
@@ -2056,7 +2094,7 @@ document.getElementById('btn-sync-areas').addEventListener('click', async ()=>{
   try{
     const workers = allUsers.filter(u=>!u.isAdmin);
     for(const u of workers){
-      await setDoc(doc(db,'serviceAreas',u.id), { name: u.name, phone: u.id, address: u.address || '' });
+      await setDoc(doc(db,'serviceAreas',u.id), { name: u.name, phone: u.id, address: u.address || '', isPremium: !!u.isPremium });
     }
     msg.style.color = 'var(--green)'; msg.textContent = `${workers.length} ሰራተኞች ተዘምነዋል።`; msg.style.display='block';
   }catch(e){
@@ -2064,6 +2102,44 @@ document.getElementById('btn-sync-areas').addEventListener('click', async ()=>{
     msg.style.color = 'var(--red)'; msg.textContent = 'ማዘመን አልተቻለም።'; msg.style.display='block';
   }
   btn.disabled = false; btn.textContent = '🔄 የአካባቢ ዝርዝር አዘምን';
+});
+
+// ---- Announcement board ----
+function renderAdsList(){
+  const box = document.getElementById('ads-list');
+  if(!box) return;
+  if(allAds.length === 0){ box.innerHTML = '<div class="empty">ገና ምንም ማስታወቂያ የለም።</div>'; return; }
+  const items = allAds.slice().sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
+  box.innerHTML = items.map(a=>`
+    <div class="hist-item">
+      <div class="meta">${escapeAttr(a.text)}${a.link ? `<br><span style="color:var(--text-3);">${escapeAttr(a.link)}</span>` : ''}</div>
+      <div class="hist-actions">
+        <button type="button" class="ghost small" data-rmad="${a.id}">ሰርዝ</button>
+      </div>
+    </div>`).join('');
+}
+document.getElementById('btn-ad-add').addEventListener('click', async ()=>{
+  const msg = document.getElementById('ad-msg');
+  msg.style.display = 'none';
+  const text = document.getElementById('ad-text').value.trim();
+  const link = document.getElementById('ad-link').value.trim();
+  if(!text){ msg.style.color='var(--red)'; msg.textContent='ጽሁፍ ያስገቡ።'; msg.style.display='block'; return; }
+  const btn = document.getElementById('btn-ad-add');
+  btn.disabled = true; btn.textContent = 'በመጨመር ላይ...';
+  try{
+    await setDoc(doc(collection(db,'announcements')), { text, link, createdAt: Date.now() });
+    document.getElementById('ad-text').value = '';
+    document.getElementById('ad-link').value = '';
+  }catch(e){
+    console.error(e);
+    msg.style.color='var(--red)'; msg.textContent='መጨመር አልተቻለም።'; msg.style.display='block';
+  }
+  btn.disabled = false; btn.textContent = 'ማስታወቂያ ጨምር';
+});
+document.getElementById('ads-list').addEventListener('click', async (e)=>{
+  const btn = e.target.closest('[data-rmad]');
+  if(!btn) return;
+  try{ await deleteDoc(doc(db,'announcements',btn.dataset.rmad)); }catch(err){ console.error(err); }
 });
 
 // ---- Admin sections accordion ----
