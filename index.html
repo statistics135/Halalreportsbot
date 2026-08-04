@@ -512,9 +512,18 @@
         </div>
         <div class="history" id="users-list"></div>
       </div>
+
+      <div class="section-title admin-accordion-title"><span class="num">13</span> 🧰 የደንበኛ ጥያቄዎች <span class="chevron">▾</span></div>
+      <div class="card">
+        <div class="form-actions" style="margin-bottom:12px;">
+          <button type="button" class="ghost" id="btn-sync-areas">🔄 የአካባቢ ዝርዝር አዘምን</button>
+        </div>
+        <div class="error-msg" id="sync-areas-msg"></div>
+        <div class="history" id="service-requests-list"></div>
+      </div>
     </div>
 
-    <div class="section-title"><span class="num">13</span> <span id="history-title">የኔ ያለፉ ሪፖርቶች</span></div>
+    <div class="section-title"><span class="num">14</span> <span id="history-title">የኔ ያለፉ ሪፖርቶች</span></div>
     <div class="history" id="history"></div>
 
   </div>
@@ -564,6 +573,23 @@
       <div class="modal-actions">
         <button type="button" class="ghost small" id="btn-approve-reject">አትቀበል</button>
         <button type="button" class="primary small" id="btn-approve-accept">ተቀበል</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ASSIGN CUSTOMER REQUEST MODAL -->
+  <div id="assign-overlay" class="modal-overlay hidden">
+    <div class="modal-box">
+      <h3>🧰 የደንበኛ ጥያቄ መድብ</h3>
+      <div id="assign-details" class="sub" style="margin-bottom:14px;"></div>
+      <div class="field">
+        <label>ለሚከተለው ሰራተኛ መድብ</label>
+        <select id="assign-worker"></select>
+      </div>
+      <div class="error-msg" id="assign-msg"></div>
+      <div class="modal-actions">
+        <button type="button" class="ghost small" id="btn-assign-cancel">ይቅር</button>
+        <button type="button" class="primary small" id="btn-assign-confirm">መድብ</button>
       </div>
     </div>
   </div>
@@ -751,6 +777,9 @@ let monthlyAutoCheckDone = false;
 let allMessages = [];
 let messagesUnsub = null;
 let pendingRegUnsub = null;
+let allServiceRequests = [];
+let serviceRequestsUnsub = null;
+let approvalLinkCheckDone = false;
 
 // ---- Helpers ----
 async function sha256(text){
@@ -996,6 +1025,9 @@ document.getElementById('btn-logout').addEventListener('click', ()=>{
   try{ localStorage.removeItem('halal-session-phone'); }catch(e){}
   if(reportsUnsub){ reportsUnsub(); reportsUnsub = null; }
   if(usersUnsub){ usersUnsub(); usersUnsub = null; }
+  if(serviceRequestsUnsub){ serviceRequestsUnsub(); serviceRequestsUnsub = null; }
+  allServiceRequests = [];
+  approvalLinkCheckDone = false;
   if(messagesUnsub){ messagesUnsub(); messagesUnsub = null; }
   allMessages = [];
   document.getElementById('msg-badge').classList.add('hidden');
@@ -1075,7 +1107,6 @@ function enterApp(){
 
   resetFormDraft();
   setupPushNotifications();
-  checkApprovalLink();
 
   const reportsQuery = currentUser.isAdmin
     ? query(collection(db,'reports'))
@@ -1098,7 +1129,14 @@ function enterApp(){
       renderUsersList();
       populateMessageTargets();
       if(reportsLoadedOnce && usersLoadedOnce) checkAutoMonthlyReport();
+      if(!approvalLinkCheckDone){ approvalLinkCheckDone = true; checkApprovalLink(); }
     }, (err)=>console.error('users listener error', err));
+
+    serviceRequestsUnsub = onSnapshot(query(collection(db,'serviceRequests')), (snap)=>{
+      allServiceRequests = [];
+      snap.forEach(d=> allServiceRequests.push({id:d.id, ...d.data()}));
+      renderServiceRequestsList();
+    }, (err)=>console.error('service requests listener error', err));
   }
 
   messagesUnsub = onSnapshot(query(collection(db,'messages')), (snap)=>{
@@ -1797,7 +1835,10 @@ document.getElementById('users-list').addEventListener('click', async (e)=>{
   if(!btn) return;
   const ok = confirm(`"${btn.dataset.uname}" የተባለውን ተጠቃሚ ማጥፋት ይፈልጋሉ?`);
   if(!ok) return;
-  try{ await deleteDoc(doc(db,'users',btn.dataset.rmuser)); }catch(err){ console.error(err); }
+  try{
+    await deleteDoc(doc(db,'users',btn.dataset.rmuser));
+    await deleteDoc(doc(db,'serviceAreas',btn.dataset.rmuser)).catch(()=>{});
+  }catch(err){ console.error(err); }
 });
 
 // ---- Messages (admin -> worker/all) ----
@@ -1890,7 +1931,11 @@ async function checkApprovalLink(){
   if(!currentUser || !currentUser.isAdmin) return;
   const params = new URLSearchParams(location.search);
   const approvePhone = params.get('approve');
-  if(!approvePhone) return;
+  const approveRequestId = params.get('approveRequest');
+  if(approvePhone){ await handleRegistrationApprovalLink(approvePhone); }
+  if(approveRequestId){ await handleServiceRequestApprovalLink(approveRequestId); }
+}
+async function handleRegistrationApprovalLink(approvePhone){
   try{
     const snap = await getDoc(doc(db,'pendingRegistrations',approvePhone));
     if(!snap.exists()){
@@ -1910,6 +1955,9 @@ async function checkApprovalLink(){
           name: data.name, phone: data.phone, address: data.address || '',
           passwordHash: data.passwordHash, isAdmin: data.isAdmin, createdAt: Date.now()
         });
+        if(!data.isAdmin){
+          await setDoc(doc(db,'serviceAreas',data.phone), { name: data.name, phone: data.phone, address: data.address || '' });
+        }
         await deleteDoc(doc(db,'pendingRegistrations',data.phone));
       }catch(e){ console.error(e); alert('ማጽደቅ አልተቻለም፣ እንደገና ይሞክሩ።'); }
       document.getElementById('approve-overlay').classList.add('hidden');
@@ -1922,6 +1970,101 @@ async function checkApprovalLink(){
     };
   }catch(e){ console.error('approval check failed', e); }
 }
+
+// ---- Customer service requests ----
+async function handleServiceRequestApprovalLink(requestId){
+  try{
+    const snap = await getDoc(doc(db,'serviceRequests',requestId));
+    if(!snap.exists()){
+      alert('ይህ ጥያቄ አልተገኘም (ምናልባት ቀድሞ ተመድቧል ወይም ተሰርዟል)።');
+      history.replaceState(null,'',location.pathname);
+      return;
+    }
+    const data = snap.data();
+    document.getElementById('assign-details').innerHTML =
+      `<b>${escapeAttr(data.customerName)}</b> (${escapeAttr(data.requestType||'')})<br>📱 ${escapeAttr(data.customerPhone)}<br>🏠 ${escapeAttr(data.address)}<br>🔧 ${escapeAttr(data.issue)}`;
+    const sel = document.getElementById('assign-worker');
+    const workers = allUsers.filter(u=>!u.isAdmin);
+    sel.innerHTML = workers.map(u=>`<option value="${u.id}" data-name="${escapeAttr(u.name)}" ${u.id===data.suggestedWorkerPhone?'selected':''}>${escapeAttr(u.name)}${u.address ? ' — '+escapeAttr(u.address) : ''}</option>`).join('');
+    document.getElementById('assign-msg').style.display = 'none';
+    document.getElementById('assign-overlay').classList.remove('hidden');
+
+    document.getElementById('btn-assign-confirm').onclick = async ()=>{
+      const opt = sel.selectedOptions[0];
+      if(!opt){ document.getElementById('assign-msg').textContent = 'ሰራተኛ ይምረጡ።'; document.getElementById('assign-msg').style.display='block'; return; }
+      const workerPhone = opt.value, workerName = opt.dataset.name;
+      const btn = document.getElementById('btn-assign-confirm');
+      btn.disabled = true; btn.textContent = 'በመመደብ ላይ...';
+      try{
+        await setDoc(doc(db,'serviceRequests',requestId), {
+          status: 'assigned', assignedWorkerPhone: workerPhone, assignedWorkerName: workerName
+        }, { merge: true });
+        await setDoc(doc(collection(db,'messages')), {
+          text: `🧰 አዲስ የደንበኛ ስራ ተመድቦልዎታል\n👤 ደንበኛ: ${data.customerName}\n📱 ስልክ: ${data.customerPhone}\n🏠 አድራሻ: ${data.address}\n🔧 ችግር: ${data.issue}`,
+          toPhone: workerPhone, fromName: currentUser.name, createdAt: Date.now(), readBy: [currentUser.phone]
+        });
+      }catch(e){ console.error(e); alert('መመደብ አልተቻለም፣ እንደገና ይሞክሩ።'); }
+      btn.disabled = false; btn.textContent = 'መድብ';
+      document.getElementById('assign-overlay').classList.add('hidden');
+      history.replaceState(null,'',location.pathname);
+    };
+  }catch(e){ console.error('service request approval check failed', e); }
+}
+document.getElementById('btn-assign-cancel').addEventListener('click', ()=>{
+  document.getElementById('assign-overlay').classList.add('hidden');
+  history.replaceState(null,'',location.pathname);
+});
+
+function srStatusLabel(s){
+  if(s === 'pending') return { text: 'በመጠባበቅ ላይ', cls: 'badge-worker' };
+  if(s === 'assigned') return { text: 'ተመድቧል', cls: 'badge-admin' };
+  if(s === 'completed') return { text: 'ተጠናቅቋል', cls: 'badge-admin' };
+  return { text: s, cls: 'badge-worker' };
+}
+function renderServiceRequestsList(){
+  const box = document.getElementById('service-requests-list');
+  if(!box) return;
+  if(allServiceRequests.length === 0){ box.innerHTML = '<div class="empty">ገና ምንም የደንበኛ ጥያቄ የለም።</div>'; return; }
+  const items = allServiceRequests.slice().sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
+  box.innerHTML = items.map(r=>{
+    const st = srStatusLabel(r.status);
+    return `
+    <div class="hist-item">
+      <div class="meta">${escapeAttr(r.customerName)} — ${escapeAttr(r.customerPhone)} <span class="${st.cls==='badge-admin'?'badge-admin':'badge-worker'}">${st.text}</span><br>
+      🏠 ${escapeAttr(r.address)} · 🔧 ${escapeAttr(r.issue)}${r.assignedWorkerName ? ' · 👷 '+escapeAttr(r.assignedWorkerName) : ''}</div>
+      <div class="hist-actions">
+        ${r.status==='pending' ? `<button type="button" class="ghost small" data-assign-req="${r.id}">መድብ</button>` : ''}
+        ${r.status==='assigned' ? `<button type="button" class="ghost small" data-complete-req="${r.id}">ተጠናቀቀ</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+document.getElementById('service-requests-list').addEventListener('click', async (e)=>{
+  const assignBtn = e.target.closest('[data-assign-req]');
+  const completeBtn = e.target.closest('[data-complete-req]');
+  if(assignBtn){ handleServiceRequestApprovalLink(assignBtn.dataset.assignReq); }
+  if(completeBtn){
+    try{ await setDoc(doc(db,'serviceRequests',completeBtn.dataset.completeReq), { status: 'completed' }, { merge: true }); }
+    catch(err){ console.error(err); }
+  }
+});
+
+document.getElementById('btn-sync-areas').addEventListener('click', async ()=>{
+  const msg = document.getElementById('sync-areas-msg');
+  const btn = document.getElementById('btn-sync-areas');
+  btn.disabled = true; btn.textContent = 'በማዘመን ላይ...';
+  try{
+    const workers = allUsers.filter(u=>!u.isAdmin);
+    for(const u of workers){
+      await setDoc(doc(db,'serviceAreas',u.id), { name: u.name, phone: u.id, address: u.address || '' });
+    }
+    msg.style.color = 'var(--green)'; msg.textContent = `${workers.length} ሰራተኞች ተዘምነዋል።`; msg.style.display='block';
+  }catch(e){
+    console.error(e);
+    msg.style.color = 'var(--red)'; msg.textContent = 'ማዘመን አልተቻለም።'; msg.style.display='block';
+  }
+  btn.disabled = false; btn.textContent = '🔄 የአካባቢ ዝርዝር አዘምን';
+});
 
 // ---- Admin sections accordion ----
 document.querySelectorAll('#admin-section > .admin-accordion-title').forEach(title=>{
@@ -1953,4 +2096,4 @@ document.querySelectorAll('#admin-section > .admin-accordion-title').forEach(tit
 })();
 </script>
 </body>
-                                                                                             </html>
+  </html>
