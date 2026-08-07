@@ -624,6 +624,32 @@
     </div>
   </div>
 
+  <!-- PREMIUM REQUEST MODAL (worker side) -->
+  <div id="premium-request-overlay" class="modal-overlay hidden">
+    <div class="modal-box">
+      <h3>⭐ ፕሪሚየም ይሁኑ</h3>
+      <p class="sub">ፕሪሚየም ለመሆን <b class="mono" id="prem-amount-text">500 ብር</b> ወደ ድርጅቱ አካውንት ይክፈሉ፣ ደረሰኝ ፎቶ አያይዘው ይላኩ።</p>
+      <div class="account-box" style="margin-bottom:14px;">
+        <div>
+          <div class="k">የባንክ አካውንት ቁጥር</div>
+          <div class="v">1000422578068</div>
+          <div class="name">Fuad Museyd Hassen</div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="upload-label">📎 የክፍያ ደረሰኝ ፎቶ</label>
+        <label class="upload-btn" for="prem-receipt-file">📎 ፎቶ ይስቀሉ</label>
+        <input type="file" id="prem-receipt-file" accept="image/*" style="display:none;">
+        <div class="thumb-row" id="prem-receipt-preview"></div>
+      </div>
+      <div class="error-msg" id="prem-req-msg"></div>
+      <div class="modal-actions">
+        <button type="button" class="ghost small" id="btn-prem-req-cancel">ይቅር</button>
+        <button type="button" class="primary small" id="btn-prem-req-send">ጥያቄ ላክ</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script type="module">
@@ -747,6 +773,7 @@ if(messaging){
 }
 
 const ADMIN_SECRET = 'FUAD-ADMIN-2026';
+const PREMIUM_PRICE = 500; // ብር — ፕሪሚየም ለመሆን የሚያስከፍለው ወርሃዊ/ነጠላ ክፍያ (እዚህ ብቻ ቀይረው ማስተካከል ይችላሉ)
 const TELEGRAM_BOT_TOKEN = '8816155815:AAGaxgc9bhIGjqLAxNTMvvFZq7StXRZ6Pus';
 const TELEGRAM_CHAT_ID = '6853753240';
 const DAYS_AM = ['እሁድ','ሰኞ','ማክሰኞ','ረቡዕ','ሐሙስ','አርብ','ቅዳሜ'];
@@ -811,6 +838,7 @@ let allServiceRequests = [];
 let serviceRequestsUnsub = null;
 let approvalLinkCheckDone = false;
 let allAds = [];
+let premiumReceiptImage = null;
 let adsUnsub = null;
 let allPremiumRequests = [];
 let premiumRequestsUnsub = null;
@@ -903,6 +931,17 @@ async function sendTelegramPhoto(dataUrl, caption){
     formData.append('photo', blob, 'photo.jpg');
     await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, { method:'POST', body: formData });
   }catch(e){ console.error('Telegram photo error', e); }
+}
+async function sendTelegramPhotoWithButton(dataUrl, caption, buttonText, buttonUrl){
+  try{
+    const blob = dataURLtoBlob(dataUrl);
+    const formData = new FormData();
+    formData.append('chat_id', TELEGRAM_CHAT_ID);
+    formData.append('caption', caption);
+    formData.append('photo', blob, 'photo.jpg');
+    formData.append('reply_markup', JSON.stringify({ inline_keyboard: [[{ text: buttonText, url: buttonUrl }]] }));
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, { method:'POST', body: formData });
+  }catch(e){ console.error('Telegram photo+button error', e); }
 }
 async function sendTelegramMediaGroup(images, captions){
   try{
@@ -1127,30 +1166,65 @@ function showCpError(msg){
   el.textContent = msg; el.style.display = 'block';
 }
 document.getElementById('btn-open-changepass').addEventListener('click', openChangePass);
-document.getElementById('btn-request-premium').addEventListener('click', async ()=>{
+document.getElementById('btn-request-premium').addEventListener('click', ()=>{
   if(!currentUser) return;
-  const btn = document.getElementById('btn-request-premium');
-  btn.disabled = true; btn.innerHTML = '⭐ <span>በመላክ ላይ...</span>';
+  document.getElementById('prem-amount-text').textContent = `${PREMIUM_PRICE.toLocaleString('en-US')} ብር`;
+  premiumReceiptImage = null;
+  document.getElementById('prem-receipt-preview').innerHTML = '';
+  document.getElementById('prem-req-msg').style.display = 'none';
+  document.getElementById('premium-request-overlay').classList.remove('hidden');
+});
+document.getElementById('btn-prem-req-cancel').addEventListener('click', ()=>{
+  document.getElementById('premium-request-overlay').classList.add('hidden');
+});
+document.getElementById('prem-receipt-file').addEventListener('change', async (e)=>{
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+  try{
+    premiumReceiptImage = await compressImage(file);
+    document.getElementById('prem-receipt-preview').innerHTML =
+      `<div class="thumb"><img src="${premiumReceiptImage}"><button type="button" class="rm" id="btn-prem-receipt-rm">✕</button></div>`;
+    document.getElementById('btn-prem-receipt-rm').addEventListener('click', ()=>{
+      premiumReceiptImage = null;
+      document.getElementById('prem-receipt-preview').innerHTML = '';
+    });
+  }catch(err){ console.error(err); }
+  e.target.value = '';
+});
+document.getElementById('btn-prem-req-send').addEventListener('click', async ()=>{
+  if(!currentUser) return;
+  const msg = document.getElementById('prem-req-msg');
+  msg.style.display = 'none';
+  if(!premiumReceiptImage){
+    msg.textContent = 'እባክዎ የክፍያ ደረሰኝ ፎቶ ያያይዙ።'; msg.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('btn-prem-req-send');
+  btn.disabled = true; btn.textContent = 'በመላክ ላይ...';
   const allowed = await checkRateLimit('premiumreq', currentUser.phone);
   if(!allowed){
-    alert('ብዙ ጊዜ ሞክረዋል፣ እባክዎ ትንሽ ቆይተው (1 ደቂቃ) ደግመው ይሞክሩ።');
-    btn.disabled = false; btn.innerHTML = '⭐ <span>ፕሪሚየም ጠይቅ</span>';
+    msg.textContent = 'ብዙ ጊዜ ሞክረዋል፣ እባክዎ ትንሽ ቆይተው (1 ደቂቃ) ደግመው ይሞክሩ።'; msg.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'ጥያቄ ላክ';
     return;
   }
   try{
     await setDoc(doc(db,'premiumRequests',currentUser.phone), {
-      name: currentUser.name, phone: currentUser.phone, requestedAt: Date.now()
+      name: currentUser.name, phone: currentUser.phone, amount: PREMIUM_PRICE, requestedAt: Date.now()
     });
     const approveUrl = `${location.origin}${location.pathname}?approvePremium=${currentUser.phone}`;
-    await sendTelegramTextWithButton(
-      `⭐ የፕሪሚየም ጥያቄ\n👤 ስም: ${currentUser.name}\n📱 ስልክ: ${currentUser.phone}`,
+    await sendTelegramPhotoWithButton(
+      premiumReceiptImage,
+      `⭐ የፕሪሚየም ጥያቄ (ደረሰኝ ተያይዟል)\n👤 ስም: ${currentUser.name}\n📱 ስልክ: ${currentUser.phone}\n💰 መጠን: ${PREMIUM_PRICE.toLocaleString('en-US')} ብር`,
       '✅ ፕሪሚየም አድርግ', approveUrl
     );
-    btn.innerHTML = '⭐ <span>ተጠይቋል ✓</span>';
+    document.getElementById('premium-request-overlay').classList.add('hidden');
+    const menuBtn = document.getElementById('btn-request-premium');
+    menuBtn.disabled = true; menuBtn.innerHTML = '⭐ <span>ተጠይቋል ✓</span>';
   }catch(e){
     console.error(e);
-    btn.disabled = false; btn.innerHTML = '⭐ <span>ፕሪሚየም ጠይቅ</span>';
+    msg.textContent = 'መላክ አልተቻለም፣ እንደገና ይሞክሩ።'; msg.style.display = 'block';
   }
+  btn.disabled = false; btn.textContent = 'ጥያቄ ላክ';
 });
 document.getElementById('btn-cp-cancel').addEventListener('click', closeChangePass);
 document.getElementById('btn-cp-submit').addEventListener('click', async ()=>{
@@ -2082,7 +2156,7 @@ async function handlePremiumApprovalLink(phone){
       return;
     }
     const data = snap.data();
-    document.getElementById('premium-details').innerHTML = `<b>${escapeAttr(data.name)}</b><br>📱 ${escapeAttr(data.phone)}`;
+    document.getElementById('premium-details').innerHTML = `<b>${escapeAttr(data.name)}</b><br>📱 ${escapeAttr(data.phone)}${data.amount ? `<br>💰 ${Number(data.amount).toLocaleString('en-US')} ብር (ደረሰኝ ወደ ቴሌግራም ተልኳል)` : ''}`;
     document.getElementById('premium-overlay').classList.remove('hidden');
 
     document.getElementById('btn-premium-accept').onclick = async ()=>{
@@ -2150,8 +2224,8 @@ async function handleServiceRequestApprovalLink(requestId){
     document.getElementById('assign-details').innerHTML =
       `<b>${escapeAttr(data.customerName)}</b> (${escapeAttr(data.requestType||'')})<br>📱 ${escapeAttr(data.customerPhone)}<br>🏠 ${escapeAttr(data.address)}<br>🔧 ${escapeAttr(data.issue)}`;
     const sel = document.getElementById('assign-worker');
-    const workers = allUsers.filter(u=>!u.isAdmin);
-    sel.innerHTML = workers.map(u=>`<option value="${u.id}" data-name="${escapeAttr(u.name)}" ${u.id===data.suggestedWorkerPhone?'selected':''}>${escapeAttr(u.name)}${u.address ? ' — '+escapeAttr(u.address) : ''}</option>`).join('');
+    const workers = allUsers.filter(u=>!u.isAdmin).slice().sort((a,b)=> (b.isPremium?1:0) - (a.isPremium?1:0));
+    sel.innerHTML = workers.map(u=>`<option value="${u.id}" data-name="${escapeAttr(u.name)}" ${u.id===data.suggestedWorkerPhone?'selected':''}>${u.isPremium ? '⭐ ' : ''}${escapeAttr(u.name)}${u.address ? ' — '+escapeAttr(u.address) : ''}</option>`).join('');
     document.getElementById('assign-msg').style.display = 'none';
     document.getElementById('assign-overlay').classList.remove('hidden');
 
@@ -2300,4 +2374,4 @@ document.querySelectorAll('#admin-section > .admin-accordion-title').forEach(tit
 })();
 </script>
 </body>
-              </html>
+</html>
