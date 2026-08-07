@@ -236,6 +236,7 @@
         <button type="button" class="menu-item hidden" id="install-app-btn">📲 <span>እንደ መተግበሪያ ጫን</span></button>
         <div class="menu-sep hidden" id="menu-sep-session"></div>
         <button type="button" class="menu-item hidden" id="btn-open-messages">💬 <span>መልእክቶች</span><span class="msg-badge hidden" id="msg-badge"></span></button>
+        <button type="button" class="menu-item hidden" id="btn-request-premium">⭐ <span>ፕሪሚየም ጠይቅ</span></button>
         <button type="button" class="menu-item hidden" id="btn-open-changepass">🔑 <span>ፓስወርድ ቀይር</span></button>
         <button type="button" class="menu-item hidden" id="btn-logout">🚪 <span>ውጣ</span></button>
       </div>
@@ -611,6 +612,18 @@
     </div>
   </div>
 
+  <!-- PREMIUM APPROVAL MODAL -->
+  <div id="premium-overlay" class="modal-overlay hidden">
+    <div class="modal-box">
+      <h3>⭐ የፕሪሚየም ጥያቄ ማጽደቅ</h3>
+      <div id="premium-details" class="sub" style="margin-bottom:14px;"></div>
+      <div class="modal-actions">
+        <button type="button" class="ghost small" id="btn-premium-reject">አትቀበል</button>
+        <button type="button" class="primary small" id="btn-premium-accept">ፕሪሚየም አድርግ</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script type="module">
@@ -799,6 +812,8 @@ let serviceRequestsUnsub = null;
 let approvalLinkCheckDone = false;
 let allAds = [];
 let adsUnsub = null;
+let allPremiumRequests = [];
+let premiumRequestsUnsub = null;
 
 // ---- Helpers ----
 async function sha256(text){
@@ -817,7 +832,26 @@ function parseNum(val){
   if(!val) return 0;
   return Number(String(val).replace(/,/g, '')) || 0;
 }
-function isValidPhone(p){ return /^\d{10}$/.test(p); }
+function isValidPhone(p){ return /^(09|07)\d{8}$/.test(p); }
+
+// ---- Rate limiting (max 3 requests/minute per action+phone) ----
+async function checkRateLimit(action, phone){
+  const ref = doc(db,'rateLimits', `${action}_${phone}`);
+  try{
+    const snap = await getDoc(ref);
+    const now = Date.now();
+    const windowStart = now - 60000;
+    let timestamps = (snap.exists() && Array.isArray(snap.data().timestamps)) ? snap.data().timestamps : [];
+    timestamps = timestamps.filter(t => t > windowStart);
+    if(timestamps.length >= 3){ return false; }
+    timestamps.push(now);
+    await setDoc(ref, { timestamps: timestamps.slice(-10) });
+    return true;
+  }catch(e){
+    console.error('rate limit check failed', e);
+    return true; // ግንኙነት ችግር ብቻ ከሆነ አታስቁም
+  }
+}
 function genCode(){ return String(Math.floor(100000 + Math.random()*900000)); }
 
 // Auto-clear "0" placeholder
@@ -953,7 +987,7 @@ document.getElementById('btn-login').addEventListener('click', async ()=>{
     const user = snap.data();
     const hash = await sha256(pass);
     if(hash !== user.passwordHash){ showAuthError('የይለፍ ቃል ትክክል አይደለም።'); return; }
-    currentUser = { name: user.name, phone, isAdmin: !!user.isAdmin };
+    currentUser = { name: user.name, phone, isAdmin: !!user.isAdmin, isPremium: !!user.isPremium };
     try{ localStorage.setItem('halal-session-phone', phone); }catch(e){}
     enterApp();
   }catch(e){
@@ -981,6 +1015,12 @@ document.getElementById('btn-reg-step1').addEventListener('click', async ()=>{
   const btn = document.getElementById('btn-reg-step1');
   btn.disabled = true; btn.textContent = 'በማረጋገጥ ላይ...';
   try{
+    const allowed = await checkRateLimit('register', phone);
+    if(!allowed){
+      showAuthError('ብዙ ጊዜ ሞክረዋል፣ እባክዎ ትንሽ ቆይተው (1 ደቂቃ) ደግመው ይሞክሩ።');
+      btn.disabled = false; btn.textContent = 'ቀጣይ — ጥያቄ ላክ';
+      return;
+    }
     const snap = await getDoc(doc(db,'users',phone));
     if(snap.exists()){
       showAuthError('ይህ ስልክ ቁጥር ቀድሞ ተመዝግቧል። "ግባ" የሚለውን ይጠቀሙ።');
@@ -1016,6 +1056,8 @@ document.getElementById('btn-reg-back').addEventListener('click', ()=>{
 
 document.getElementById('btn-reg-resend').addEventListener('click', async ()=>{
   if(!pendingReg) return;
+  const allowed = await checkRateLimit('register', pendingReg.phone);
+  if(!allowed){ showAuthError('ብዙ ጊዜ ሞክረዋል፣ እባክዎ ትንሽ ቆይተው (1 ደቂቃ) ደግመው ይሞክሩ።'); return; }
   const approveUrl = `${location.origin}${location.pathname}?approve=${pendingReg.phone}`;
   await sendTelegramTextWithButton(
     `🔁 ድጋሚ የመዳረሻ ጥያቄ\n👤 ስም: ${pendingReg.name}\n📱 ስልክ: ${pendingReg.phone}\n🏠 አድራሻ: ${pendingReg.address}${pendingReg.isAdmin ? '\n⚠️ አድሚን ለመሆን ጠይቋል' : ''}`,
@@ -1030,7 +1072,7 @@ function watchApproval(phone){
     if(snap.exists()){
       const user = snap.data();
       if(pendingRegUnsub){ pendingRegUnsub(); pendingRegUnsub = null; }
-      currentUser = { name: user.name, phone, isAdmin: !!user.isAdmin };
+      currentUser = { name: user.name, phone, isAdmin: !!user.isAdmin, isPremium: !!user.isPremium };
       try{ localStorage.setItem('halal-session-phone', phone); }catch(e){}
       pendingReg = null;
       enterApp();
@@ -1049,6 +1091,8 @@ document.getElementById('btn-logout').addEventListener('click', ()=>{
   approvalLinkCheckDone = false;
   if(adsUnsub){ adsUnsub(); adsUnsub = null; }
   allAds = [];
+  if(premiumRequestsUnsub){ premiumRequestsUnsub(); premiumRequestsUnsub = null; }
+  allPremiumRequests = [];
   if(messagesUnsub){ messagesUnsub(); messagesUnsub = null; }
   allMessages = [];
   document.getElementById('msg-badge').classList.add('hidden');
@@ -1057,6 +1101,7 @@ document.getElementById('btn-logout').addEventListener('click', ()=>{
   document.getElementById('btn-open-messages').classList.add('hidden');
   document.getElementById('btn-open-changepass').classList.add('hidden');
   document.getElementById('btn-logout').classList.add('hidden');
+  document.getElementById('btn-request-premium').classList.add('hidden');
   document.getElementById('header-menu').classList.add('hidden');
   reportsLoadedOnce = false;
   usersLoadedOnce = false;
@@ -1082,6 +1127,31 @@ function showCpError(msg){
   el.textContent = msg; el.style.display = 'block';
 }
 document.getElementById('btn-open-changepass').addEventListener('click', openChangePass);
+document.getElementById('btn-request-premium').addEventListener('click', async ()=>{
+  if(!currentUser) return;
+  const btn = document.getElementById('btn-request-premium');
+  btn.disabled = true; btn.innerHTML = '⭐ <span>በመላክ ላይ...</span>';
+  const allowed = await checkRateLimit('premiumreq', currentUser.phone);
+  if(!allowed){
+    alert('ብዙ ጊዜ ሞክረዋል፣ እባክዎ ትንሽ ቆይተው (1 ደቂቃ) ደግመው ይሞክሩ።');
+    btn.disabled = false; btn.innerHTML = '⭐ <span>ፕሪሚየም ጠይቅ</span>';
+    return;
+  }
+  try{
+    await setDoc(doc(db,'premiumRequests',currentUser.phone), {
+      name: currentUser.name, phone: currentUser.phone, requestedAt: Date.now()
+    });
+    const approveUrl = `${location.origin}${location.pathname}?approvePremium=${currentUser.phone}`;
+    await sendTelegramTextWithButton(
+      `⭐ የፕሪሚየም ጥያቄ\n👤 ስም: ${currentUser.name}\n📱 ስልክ: ${currentUser.phone}`,
+      '✅ ፕሪሚየም አድርግ', approveUrl
+    );
+    btn.innerHTML = '⭐ <span>ተጠይቋል ✓</span>';
+  }catch(e){
+    console.error(e);
+    btn.disabled = false; btn.innerHTML = '⭐ <span>ፕሪሚየም ጠይቅ</span>';
+  }
+});
 document.getElementById('btn-cp-cancel').addEventListener('click', closeChangePass);
 document.getElementById('btn-cp-submit').addEventListener('click', async ()=>{
   showCpError('');
@@ -1117,14 +1187,23 @@ function enterApp(){
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
   document.getElementById('who-name').textContent = currentUser.name;
-  document.getElementById('who-badge').innerHTML = currentUser.isAdmin
-    ? '<span class="badge-admin">አድሚን</span>' : '<span class="badge-worker">ሠራተኛ</span>';
+  document.getElementById('who-badge').innerHTML = (currentUser.isAdmin
+    ? '<span class="badge-admin">አድሚን</span>' : '<span class="badge-worker">ሠራተኛ</span>')
+    + (currentUser.isPremium ? ' <span class="badge-admin">⭐ ፕሪሚየም</span>' : '');
   document.getElementById('admin-section').classList.toggle('hidden', !currentUser.isAdmin);
   document.getElementById('history-title').textContent = currentUser.isAdmin ? 'ሁሉም ሪፖርቶች' : 'የኔ ያለፉ ሪፖርቶች';
   document.getElementById('menu-sep-session').classList.remove('hidden');
   document.getElementById('btn-open-messages').classList.remove('hidden');
   document.getElementById('btn-open-changepass').classList.remove('hidden');
   document.getElementById('btn-logout').classList.remove('hidden');
+  const reqPremBtn = document.getElementById('btn-request-premium');
+  if(!currentUser.isAdmin && !currentUser.isPremium){
+    reqPremBtn.classList.remove('hidden');
+    reqPremBtn.disabled = false;
+    reqPremBtn.innerHTML = '⭐ <span>ፕሪሚየም ጠይቅ</span>';
+  }else{
+    reqPremBtn.classList.add('hidden');
+  }
 
   resetFormDraft();
   setupPushNotifications();
@@ -1164,6 +1243,12 @@ function enterApp(){
       snap.forEach(d=> allAds.push({id:d.id, ...d.data()}));
       renderAdsList();
     }, (err)=>console.error('ads listener error', err));
+
+    premiumRequestsUnsub = onSnapshot(query(collection(db,'premiumRequests')), (snap)=>{
+      allPremiumRequests = [];
+      snap.forEach(d=> allPremiumRequests.push({id:d.id, ...d.data()}));
+      renderUsersList();
+    }, (err)=>console.error('premium requests listener error', err));
   }
 
   messagesUnsub = onSnapshot(query(collection(db,'messages')), (snap)=>{
@@ -1847,10 +1932,12 @@ function renderUsersList(){
   if(filtered.length === 0){ box.innerHTML = '<div class="empty">ምንም ግጥሚያ አልተገኘም።</div>'; return; }
   box.innerHTML = filtered.map(u => {
     const reportCount = allReports.filter(r=>r.workerPhone === u.id).length;
+    const pendingReq = allPremiumRequests.find(pr=>pr.id === u.id);
     return `
     <div class="hist-item">
-      <div class="meta">${escapeAttr(u.name)} — ${escapeAttr(u.id)} ${u.isAdmin ? '<span class="badge-admin">አድሚን</span>' : '<span class="badge-worker">ሠራተኛ</span>'}${u.isPremium ? ' <span class="badge-admin">⭐ ፕሪሚየም</span>' : ''} · ${reportCount} ሪፖርት</div>
+      <div class="meta">${escapeAttr(u.name)} — ${escapeAttr(u.id)} ${u.isAdmin ? '<span class="badge-admin">አድሚን</span>' : '<span class="badge-worker">ሠራተኛ</span>'}${u.isPremium ? ' <span class="badge-admin">⭐ ፕሪሚየም</span>' : ''}${pendingReq ? ' <span class="badge-worker">⏳ ፕሪሚየም ጠይቋል</span>' : ''} · ${reportCount} ሪፖርት</div>
       <div class="hist-actions">
+        ${pendingReq ? `<button type="button" class="ghost small" data-quick-approve-premium="${u.id}">⭐ አጽድቅ</button>` : ''}
         ${!u.isAdmin ? `<button type="button" class="ghost small" data-premium="${u.id}" data-uname="${escapeAttr(u.name)}" data-cur="${u.isPremium?1:0}">${u.isPremium ? '⭐ ፕሪሚየም አጥፋ' : '⭐ ፕሪሚየም አድርግ'}</button>` : ''}
         ${u.id === currentUser.phone ? '<span style="font-size:11.5px;color:var(--text-3);">(እርስዎ)</span>' : `<button type="button" class="ghost small" data-rmuser="${u.id}" data-uname="${escapeAttr(u.name)}">አጥፋ</button>`}
       </div>
@@ -1859,6 +1946,17 @@ function renderUsersList(){
 }
 document.getElementById('users-search').addEventListener('input', renderUsersList);
 document.getElementById('users-list').addEventListener('click', async (e)=>{
+  const quickBtn = e.target.closest('[data-quick-approve-premium]');
+  if(quickBtn){
+    const phone = quickBtn.dataset.quickApprovePremium;
+    quickBtn.disabled = true; quickBtn.textContent = 'በማጽደቅ ላይ...';
+    try{
+      await setDoc(doc(db,'users',phone), { isPremium: true }, { merge: true });
+      await setDoc(doc(db,'serviceAreas',phone), { isPremium: true }, { merge: true }).catch(()=>{});
+      await deleteDoc(doc(db,'premiumRequests',phone));
+    }catch(err){ console.error(err); quickBtn.disabled = false; quickBtn.textContent = '⭐ አጽድቅ'; }
+    return;
+  }
   const premBtn = e.target.closest('[data-premium]');
   if(premBtn){
     const phone = premBtn.dataset.premium;
@@ -1970,8 +2068,38 @@ async function checkApprovalLink(){
   const params = new URLSearchParams(location.search);
   const approvePhone = params.get('approve');
   const approveRequestId = params.get('approveRequest');
+  const approvePremiumPhone = params.get('approvePremium');
   if(approvePhone){ await handleRegistrationApprovalLink(approvePhone); }
   if(approveRequestId){ await handleServiceRequestApprovalLink(approveRequestId); }
+  if(approvePremiumPhone){ await handlePremiumApprovalLink(approvePremiumPhone); }
+}
+async function handlePremiumApprovalLink(phone){
+  try{
+    const snap = await getDoc(doc(db,'premiumRequests',phone));
+    if(!snap.exists()){
+      alert('ይህ የፕሪሚየም ጥያቄ አልተገኘም (ምናልባት ቀድሞ ጸድቋል ወይም ተሰርዟል)።');
+      history.replaceState(null,'',location.pathname);
+      return;
+    }
+    const data = snap.data();
+    document.getElementById('premium-details').innerHTML = `<b>${escapeAttr(data.name)}</b><br>📱 ${escapeAttr(data.phone)}`;
+    document.getElementById('premium-overlay').classList.remove('hidden');
+
+    document.getElementById('btn-premium-accept').onclick = async ()=>{
+      try{
+        await setDoc(doc(db,'users',phone), { isPremium: true }, { merge: true });
+        await setDoc(doc(db,'serviceAreas',phone), { isPremium: true }, { merge: true }).catch(()=>{});
+        await deleteDoc(doc(db,'premiumRequests',phone));
+      }catch(e){ console.error(e); alert('ማጽደቅ አልተቻለም፣ እንደገና ይሞክሩ።'); }
+      document.getElementById('premium-overlay').classList.add('hidden');
+      history.replaceState(null,'',location.pathname);
+    };
+    document.getElementById('btn-premium-reject').onclick = async ()=>{
+      try{ await deleteDoc(doc(db,'premiumRequests',phone)); }catch(e){ console.error(e); }
+      document.getElementById('premium-overlay').classList.add('hidden');
+      history.replaceState(null,'',location.pathname);
+    };
+  }catch(e){ console.error('premium approval check failed', e); }
 }
 async function handleRegistrationApprovalLink(approvePhone){
   try{
@@ -2163,7 +2291,7 @@ document.querySelectorAll('#admin-section > .admin-accordion-title').forEach(tit
     const snap = await getDoc(doc(db,'users',savedPhone));
     if(snap.exists()){
       const user = snap.data();
-      currentUser = { name: user.name, phone: savedPhone, isAdmin: !!user.isAdmin };
+      currentUser = { name: user.name, phone: savedPhone, isAdmin: !!user.isAdmin, isPremium: !!user.isPremium };
       enterApp();
     }else{
       try{ localStorage.removeItem('halal-session-phone'); }catch(e){}
@@ -2172,4 +2300,4 @@ document.querySelectorAll('#admin-section > .admin-accordion-title').forEach(tit
 })();
 </script>
 </body>
-  </html>
+              </html>
