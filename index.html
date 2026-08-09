@@ -539,9 +539,18 @@
         <div class="error-msg" id="ad-msg"></div>
         <div class="history" id="ads-list" style="margin-top:14px;"></div>
       </div>
+
+      <div class="section-title admin-accordion-title"><span class="num">15</span> 💾 ምትኬ <span class="chevron">▾</span></div>
+      <div class="card">
+        <p class="sub" style="margin:0 0 12px;">ተጠቃሚዎች፣ ሪፖርቶች፣ የደንበኛ ጥያቄዎች ሁሉ በራስ-ሰር በየቀኑ ወደ ቴሌግራም ይላካሉ። እዚህ ደግሞ በፈለጉት ጊዜ ወዲያውኑ ማውረድ ይችላሉ።</p>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="btn-backup-now">💾 አሁኑኑ ሙሉ ምትኬ ላክ</button>
+        </div>
+        <div class="error-msg" id="backup-msg"></div>
+      </div>
     </div>
 
-    <div class="section-title"><span class="num">15</span> <span id="history-title">የኔ ያለፉ ሪፖርቶች</span></div>
+    <div class="section-title"><span class="num">16</span> <span id="history-title">የኔ ያለፉ ሪፖርቶች</span></div>
     <div class="history" id="history"></div>
 
   </div>
@@ -2344,6 +2353,32 @@ document.getElementById('ads-list').addEventListener('click', async (e)=>{
   try{ await deleteDoc(doc(db,'announcements',btn.dataset.rmad)); }catch(err){ console.error(err); }
 });
 
+// ---- Manual full backup ----
+const BACKUP_COLLECTIONS = ['users','reports','serviceRequests','serviceAreas','messages','announcements','premiumRequests','pendingRegistrations'];
+document.getElementById('btn-backup-now').addEventListener('click', async ()=>{
+  const btn = document.getElementById('btn-backup-now');
+  const msg = document.getElementById('backup-msg');
+  msg.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'በማዘጋጀት ላይ...';
+  try{
+    const backup = {};
+    for(const col of BACKUP_COLLECTIONS){
+      const snap = await getDocs(collection(db,col));
+      backup[col] = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    }
+    const todayStr = todayISO();
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+    const sent = await sendTelegramDocument(blob, `backup-${todayStr}.json`, `💾 ምትኬ (በእጅ የተላከ) — ${todayStr}`);
+    msg.style.color = sent ? 'var(--green)' : 'var(--red)';
+    msg.textContent = sent ? 'ምትኬው ወደ ቴሌግራም ተልኳል።' : 'መላክ አልተሳካም፣ እንደገና ይሞክሩ።';
+    msg.style.display = 'block';
+  }catch(e){
+    console.error(e);
+    msg.style.color = 'var(--red)'; msg.textContent = 'ምትኬ ማዘጋጀት አልተቻለም።'; msg.style.display = 'block';
+  }
+  btn.disabled = false; btn.textContent = '💾 አሁኑኑ ሙሉ ምትኬ ላክ';
+});
+
 // ---- Admin sections accordion ----
 document.querySelectorAll('#admin-section > .admin-accordion-title').forEach(title=>{
   const card = title.nextElementSibling;
@@ -2374,4 +2409,4 @@ document.querySelectorAll('#admin-section > .admin-accordion-title').forEach(tit
 })();
 </script>
 </body>
-</html>
+              </html>
