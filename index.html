@@ -2065,9 +2065,14 @@ function populateMessageTargets(){
   const sel = document.getElementById('msg-target');
   if(!sel) return;
   const workers = allUsers.filter(u=>!u.isAdmin);
+  const otherAdmins = allUsers.filter(u=>u.isAdmin && u.id !== currentUser.phone);
   const current = sel.value;
-  sel.innerHTML = '<option value="">ሁሉም ሰራተኛ</option>' +
-    workers.map(u=>`<option value="${u.id}">${escapeAttr(u.name)}${u.address ? ' — ' + escapeAttr(u.address) : ''}</option>`).join('');
+  let opts = '<option value="">ሁሉም ሰራተኛ</option>';
+  if(otherAdmins.length){
+    opts += otherAdmins.map(u=>`<option value="${u.id}">👑 ${escapeAttr(u.name)} (አድሚን)</option>`).join('');
+  }
+  opts += workers.map(u=>`<option value="${u.id}">${escapeAttr(u.name)}${u.address ? ' — ' + escapeAttr(u.address) : ''}</option>`).join('');
+  sel.innerHTML = opts;
   sel.value = current;
 }
 document.getElementById('btn-msg-send').addEventListener('click', async ()=>{
@@ -2409,4 +2414,4 @@ document.querySelectorAll('#admin-section > .admin-accordion-title').forEach(tit
 })();
 </script>
 </body>
-              </html>
+</html>
