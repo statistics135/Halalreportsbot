@@ -1719,7 +1719,9 @@
                     <input type="text" placeholder="ሙሉ ስም" required id="fullName" />
                     <input type="tel" placeholder="ስልክ ቁጥር" required id="phone" />
                 </div>
-                <input type="text" placeholder="አድራሻ (ክፍለ ከተማ እና ሰፈር)" id="address" />
+                <input type="text" placeholder="አድራሻ (ክፍለ ከተማ እና ሰፈር)" id="address" required />
+<div id="addressMatchMsg" style="display:none; font-size:0.85rem; margin-top:-4px; padding:8px 12px; border-radius:8px;"></div>
+<select id="matchedWorkerSelect" style="display:none; margin-top:-4px;"></select>
                 <select id="appliance" required>
                     <option value="">መሳሪያ ይምረጡ</option>
                     <option value="Washing Machine">የልብስ ማጠቢያ ማሽን</option>
@@ -1919,6 +1921,81 @@
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        // ============================================================
+// ሁለተኛ Firebase (ሠራተኞችን ለማዛመድ + serviceRequests ወደ staff system)
+// ============================================================
+const reportFirebaseConfig = {
+    apiKey: "AIzaSyAZ7MU2B58bWcu-8jH9Pvv5Ob9XGQyx4NU",
+    authDomain: "halal-report-2.firebaseapp.com",
+    projectId: "halal-report-2",
+    storageBucket: "halal-report-2.firebasestorage.app",
+    messagingSenderId: "242965792260",
+    appId: "1:242965792260:web:8dd83989172924f8c5d751"
+};
+const reportApp = firebase.initializeApp(reportFirebaseConfig, "reportApp");
+const reportDb = reportApp.firestore();
+
+let allWorkersForMatch = [];
+let matchedWorkers = [];
+
+async function loadWorkersForMatch(){
+    try{
+        const snap = await reportDb.collection('serviceAreas').get();
+        allWorkersForMatch = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }catch(e){ console.warn('የሰራተኞች ዝርዝር ማምጣት አልተቻለም', e); }
+}
+loadWorkersForMatch();
+
+function normalizeAddrWords(s){
+    return (s || '').toLowerCase().split(/[\s,،\/\-]+/).filter(w => w.length > 1);
+}
+function findMatchingWorkers(customerAddr){
+    const cWords = normalizeAddrWords(customerAddr);
+    if(cWords.length === 0) return [];
+    return allWorkersForMatch.filter(w => {
+        const wWords = normalizeAddrWords(w.address);
+        return cWords.some(cw => wWords.some(ww => ww.includes(cw) || cw.includes(ww)));
+    }).sort((a,b) => (b.isPremium?1:0) - (a.isPremium?1:0));
+}
+
+let addressMatchTimer = null;
+document.getElementById('address').addEventListener('input', function(){
+    clearTimeout(addressMatchTimer);
+    addressMatchTimer = setTimeout(updateAddressMatch, 400);
+});
+
+function updateAddressMatch(){
+    const msgBox = document.getElementById('addressMatchMsg');
+    const selectBox = document.getElementById('matchedWorkerSelect');
+    const addr = document.getElementById('address').value.trim();
+
+    if(addr.length < 2){
+        msgBox.style.display = 'none';
+        selectBox.style.display = 'none';
+        matchedWorkers = [];
+        return;
+    }
+
+    matchedWorkers = findMatchingWorkers(addr);
+
+    if(matchedWorkers.length === 0){
+        msgBox.style.display = 'block';
+        msgBox.style.background = '#FEE2E2';
+        msgBox.style.color = '#991B1B';
+        msgBox.textContent = '❌ ይቅርታ፣ በዚህ አካባቢ የተመዘገበ ባለሙያ አልተገኘም። እባክዎ ትክክለኛ አካባቢ ያስገቡ ወይም በስልክ ያነጋግሩን (0939165164)።';
+        selectBox.style.display = 'none';
+        selectBox.innerHTML = '';
+    }else{
+        msgBox.style.display = 'block';
+        msgBox.style.background = '#DCFCE7';
+        msgBox.style.color = '#166534';
+        msgBox.textContent = `✅ ${matchedWorkers.length} ባለሙያ በዚህ አካባቢ ተገኝቷል። ከታች ይምረጡ፦`;
+        selectBox.style.display = 'block';
+        selectBox.innerHTML = matchedWorkers.map(w =>
+            `<option value="${w.phone||w.id}" data-name="${(w.name||'').replace(/"/g,'')}">${w.isPremium ? '⭐ ' : ''}${w.name || 'ባለሙያ'} — ${w.address || ''}</option>`
+        ).join('');
+    }
+        }
 
         // ============================================================
         // PWA: register service worker (installable app)
@@ -2199,6 +2276,24 @@
                 showToast('⚠️ እባክዎ ሁሉንም አስፈላጊ መስኮች ይሙሉ', 'error');
                 return;
             }
+        if (!address) {
+    showToast('⚠️ እባክዎ አድራሻ ያስገቡ', 'error');
+    return;
+}
+if (matchedWorkers.length === 0) {
+    showToast('❌ በዚህ አካባቢ የተመዘገበ ባለሙያ ስለሌለ መላክ አይቻልም', 'error');
+    return;
+}
+const selectedWorkerOpt = document.getElementById('matchedWorkerSelect').selectedOptions[0];
+const selectedWorkerPhone = selectedWorkerOpt ? selectedWorkerOpt.value : '';
+const selectedWorkerName = selectedWorkerOpt ? selectedWorkerOpt.dataset.name : '';
+
+let mapsLink = '';
+if (lat && lng) {
+    mapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
+} else {
+    mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}     
             if (!phone.match(/^[0-9]{9,13}$/)) {
                 showToast('⚠️ እባክዎ ትክክለኛ የስልክ ቁጥር ያስገቡ', 'error');
                 return;
@@ -2215,6 +2310,9 @@
                 status: 'Pending',
                 createdAt: new Date()
             };
+            orderData.mapsLink = mapsLink;
+orderData.suggestedWorkerPhone = selectedWorkerPhone;
+orderData.suggestedWorkerName = selectedWorkerName;
 
             if (lat && lng) {
                 orderData.customerLat = parseFloat(lat);
@@ -2232,6 +2330,23 @@
             try {
                 // Save to Firebase
                 const docRef = await db.collection('orders').add(orderData);
+                try {
+    await reportDb.collection('serviceRequests').add({
+        customerName: fullName,
+        customerPhone: phone,
+        address,
+        issue: problem || '—',
+        requestType: appliance,
+        preferredDay,
+        mapsLink,
+        suggestedWorkerPhone: selectedWorkerPhone,
+        suggestedWorkerName: selectedWorkerName,
+        status: 'pending',
+        createdAt: Date.now()
+    });
+} catch (err) {
+    console.warn('serviceRequests save failed', err);
+                }
                 console.log('✅ Order saved with ID:', docRef.id);
 
                 // Send Telegram notification
@@ -2244,6 +2359,10 @@
                 document.getElementById('formSuccess').classList.add('show');
                 document.getElementById('formError').classList.remove('show');
                 this.reset();
+                document.getElementById('addressMatchMsg').style.display = 'none';
+document.getElementById('matchedWorkerSelect').style.display = 'none';
+document.getElementById('matchedWorkerSelect').innerHTML = '';
+matchedWorkers = [];
                 document.getElementById('customerLat').value = '';
                 document.getElementById('customerLng').value = '';
                 delete document.getElementById('customerLat').dataset.accuracy;
