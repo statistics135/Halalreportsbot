@@ -2083,8 +2083,8 @@ function updateAddressMatch(){
         📍 *አድራሻ:* ${orderData.address || '—'}
         📝 *ችግር:* ${orderData.problem || '—'}
         📅 *መች ይመቻቸዋል:* ${orderData.preferredDay || 'ዛሬውኑ (በፍጥነት)'}
-        🗺️ *ቦታ:* ${orderData.customerLat ? `${orderData.customerLat}, ${orderData.customerLng}${orderData.customerLocationAccuracy ? ` (±${orderData.customerLocationAccuracy}ሜ)` : ''}` : 'አልተጋራም'}
-
+        🗺️ *ቦታ:* ${orderData.mapsLink ? `[ካርታ ላይ ይመልከቱ](${orderData.mapsLink})` : 'አልተጋራም'}
+👷 *የተጠቆመ ባለሙያ:* ${orderData.suggestedWorkerName || '—'}
         ⏰ *ሰዓት:* ${formatEthDateTime(new Date())}
 
         👨‍💼 እባክዎ ደንበኛውን በቶሎ ያነጋግሩ!
