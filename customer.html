@@ -84,7 +84,33 @@
             --radius-lg: 16px;
             --radius-xl: 24px;
         }
-
+                /* ============================================================
+           GRAYSCALE TOGGLE
+           ============================================================ */
+        html.grayscale-mode {
+            filter: grayscale(100%);
+        }
+        .bw-toggle-btn {
+            position: fixed;
+            bottom: 160px;
+            right: 24px;
+            z-index: 999;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--primary-dark);
+            color: #fff;
+            border: none;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: var(--shadow-lg);
+        }
+        .bw-toggle-btn:hover {
+            background: var(--primary);
+            }
         /* ============================================================
            RESET & BASE
            ============================================================ */
@@ -1854,7 +1880,9 @@
             <i class="fab fa-whatsapp"></i> ዋትሳፕ
         </a>
     </div>
-
+        <button type="button" class="bw-toggle-btn" id="bwToggleBtn" title="ጥቁር እና ነጭ ገፅታ">
+        <i class="fas fa-adjust"></i>
+        </button> 
     <!-- ============================================================
     FOOTER
     ============================================================ -->
@@ -1917,10 +1945,23 @@
             messagingSenderId: "595316878363",
             appId: "1:595316878363:web:162cc203a7d21d7fb11cbe"
         };
-
+  
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+                // ============================================================
+        // ሁለተኛ Firebase (ለሰራተኛ ምድብ ስርዓት - staff.html)
+        // ============================================================
+        const reportFirebaseConfig = {
+            apiKey: "AIzaSyAZ7MU2B58bWcu-8jH9Pvv5Ob9XGQyx4NU",
+            authDomain: "halal-report-2.firebaseapp.com",
+            projectId: "halal-report-2",
+            storageBucket: "halal-report-2.firebasestorage.app",
+            messagingSenderId: "242965792260",
+            appId: "1:242965792260:web:8dd83989172924f8c5d751"
+        };
+        const reportApp = firebase.initializeApp(reportFirebaseConfig, "reportApp");
+        const reportDb = reportApp.firestore();
         // ============================================================
 // ሁለተኛ Firebase (ሠራተኞችን ለማዛመድ + serviceRequests ወደ staff system)
 // ============================================================
@@ -2072,7 +2113,7 @@ function updateAddressMatch(){
         const BOT_TOKEN = "8816155815:AAGaxgc9bhIGjqLAxNTMvvFZq7StXRZ6Pus";
         const CHAT_ID = "6853753240";
 
-        async function sendTelegramNotification(orderData) {
+                async function sendTelegramNotification(orderData) {
             const message =
                 `
         📦 *አዲስ ትዕዛዝ!* 🎉
@@ -2083,22 +2124,41 @@ function updateAddressMatch(){
         📍 *አድራሻ:* ${orderData.address || '—'}
         📝 *ችግር:* ${orderData.problem || '—'}
         📅 *መች ይመቻቸዋል:* ${orderData.preferredDay || 'ዛሬውኑ (በፍጥነት)'}
-        🗺️ *ቦታ:* ${orderData.mapsLink ? `[ካርታ ላይ ይመልከቱ](${orderData.mapsLink})` : 'አልተጋራም'}
-👷 *የተጠቆመ ባለሙያ:* ${orderData.suggestedWorkerName || '—'}
+        🗺️ *ቦታ:* ${orderData.customerLat ? `[ካርታ ላይ ይመልከቱ](https://www.google.com/maps?q=${orderData.customerLat},${orderData.customerLng})${orderData.customerLocationAccuracy ? ` (±${orderData.customerLocationAccuracy}ሜ)` : ''}` : 'አልተጋራም'}
+
         ⏰ *ሰዓት:* ${formatEthDateTime(new Date())}
 
         👨‍💼 እባክዎ ደንበኛውን በቶሎ ያነጋግሩ!
         `;
 
+            const body = { chat_id: CHAT_ID, text: message, parse_mode: 'Markdown' };
+            if (orderData.assignRequestId) {
+                const assignUrl = `${location.origin}${location.pathname.replace(/[^/]*$/, 'staff.html')}?approveRequest=${orderData.assignRequestId}`;
+                body.reply_markup = { inline_keyboard: [[{ text: '👷 መድብ', url: assignUrl }]] };
+            }
+
             try {
                 await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: CHAT_ID, text: message, parse_mode: 'Markdown' })
+                    body: JSON.stringify(body)
                 });
                 console.log('✅ Telegram notification sent');
             } catch (e) {
                 console.warn('⚠️ Telegram failed:', e);
+            }
+        }
+
+        async function sendTelegramLocation(lat, lng) {
+            try {
+                await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendLocation`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: CHAT_ID, latitude: lat, longitude: lng })
+                });
+                console.log('✅ Telegram location pin sent');
+            } catch (e) {
+                console.warn('⚠️ Telegram location failed:', e);
             }
         }
 
@@ -2327,30 +2387,35 @@ orderData.suggestedWorkerName = selectedWorkerName;
             submitBtn.textContent = '⏳ በመላክ ላይ...';
             submitBtn.disabled = true;
 
-            try {
+                        try {
                 // Save to Firebase
                 const docRef = await db.collection('orders').add(orderData);
-                try {
-    await reportDb.collection('serviceRequests').add({
-        customerName: fullName,
-        customerPhone: phone,
-        address,
-        issue: problem || '—',
-        requestType: appliance,
-        preferredDay,
-        mapsLink,
-        suggestedWorkerPhone: selectedWorkerPhone,
-        suggestedWorkerName: selectedWorkerName,
-        status: 'pending',
-        createdAt: Date.now()
-    });
-} catch (err) {
-    console.warn('serviceRequests save failed', err);
-                }
                 console.log('✅ Order saved with ID:', docRef.id);
+
+                // ✅ ለሰራተኛ ምድብ (staff.html) የሚያገለግል መዝገብ
+                try {
+                    const srDoc = await reportDb.collection('serviceRequests').add({
+                        customerName: fullName,
+                        customerPhone: phone,
+                        address: address || '—',
+                        issue: problem || '—',
+                        requestType: appliance,
+                        preferredDay,
+                        status: 'pending',
+                        createdAt: Date.now()
+                    });
+                    orderData.assignRequestId = srDoc.id;
+                } catch (srErr) {
+                    console.warn('serviceRequests save failed', srErr);
+                }
 
                 // Send Telegram notification
                 await sendTelegramNotification(orderData);
+
+                // ✅ ትክክለኛ ቦታ (GPS) ካለ ካርታ ፒን ወደ ቴሌግራም ይላክ
+                if (lat && lng) {
+                    await sendTelegramLocation(parseFloat(lat), parseFloat(lng));
+                }
 
                 // Send photos (if any) to Telegram
                 await sendIssuePhotosToTelegram(fullName);
@@ -2499,7 +2564,22 @@ matchedWorkers = [];
             clearTimeout(toast._timeout);
             toast._timeout = setTimeout(() => toast.classList.remove('show'), 4000);
         }
-
+                // ============================================================
+        // BLACK & WHITE (GRAYSCALE) TOGGLE
+        // ============================================================
+        const bwToggleBtn = document.getElementById('bwToggleBtn');
+        function applyGrayscale(on) {
+            document.documentElement.classList.toggle('grayscale-mode', on);
+            bwToggleBtn.innerHTML = on ? '<i class="fas fa-palette"></i>' : '<i class="fas fa-adjust"></i>';
+        }
+        let grayscaleOn = false;
+        try { grayscaleOn = localStorage.getItem('halal-grayscale') === 'on'; } catch(e){}
+        applyGrayscale(grayscaleOn);
+        bwToggleBtn.addEventListener('click', () => {
+            grayscaleOn = !grayscaleOn;
+            applyGrayscale(grayscaleOn);
+            try { localStorage.setItem('halal-grayscale', grayscaleOn ? 'on' : 'off'); } catch(e){}
+        });
         // ============================================================
         // FAQ TOGGLE
         // ============================================================
