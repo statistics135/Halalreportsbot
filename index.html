@@ -7,7 +7,8 @@
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <
+        link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+Ethiopic:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
     
     <!-- Font Awesome -->
@@ -2517,8 +2518,7 @@
 
             await passwordSyncReady; // ✅ password ከ Firestore ሙሉ በሙሉ እስኪመጣ ይጠብቃል
 
-            try {
-                const snap = await db.collection('staff').where('phone', '==', phone).get();
+            /import-memory
                 let matchedDoc = null;
                 snap.forEach(doc => {
                     const d = doc.data();
