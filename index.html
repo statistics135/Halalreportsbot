@@ -2518,7 +2518,8 @@
 
             await passwordSyncReady; // ✅ password ከ Firestore ሙሉ በሙሉ እስኪመጣ ይጠብቃል
 
-            /import-memory
+            try {
+                const snap = await db.collection('staff').where('phone', '==', phone).get();
                 let matchedDoc = null;
                 snap.forEach(doc => {
                     const d = doc.data();
