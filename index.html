@@ -14,7 +14,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#14171A; --panel:#1B1F23; --card:#21262B;
@@ -219,74 +219,6 @@
     .grid2{grid-template-columns:1fr;}
     .readout{flex-direction:column;}
   }
-
-  /* ===== AUTH SCREEN ONLY — color / font restyle (structure & logic untouched) ===== */
-  #auth-screen{
-    --a-primary:#146356; --a-primary-dark:#0C463D; --a-primary-light:#1F8A76;
-    --a-secondary:#C9922E; --a-secondary-light:#E0B562;
-    --a-card-bg:linear-gradient(180deg, rgba(31,138,118,0.10), rgba(12,70,61,0.14));
-    --a-border:rgba(224,181,98,0.28);
-    --a-text:#F3F6F4; --a-text-2:#AEC0B9;
-  }
-  #auth-screen .section-title{ font-family:'Inter','Noto Sans Ethiopic',sans-serif; font-weight:700; letter-spacing:0.3px; color:var(--a-secondary-light); }
-  #auth-screen .section-title .num{ color:var(--a-secondary); border-color:var(--a-border); }
-  #auth-screen .section-title::after{ background:linear-gradient(90deg, var(--a-border), transparent); }
-  #auth-screen .card{
-    background:var(--a-card-bg);
-    border:1px solid var(--a-border);
-    border-radius:var(--radius, 6px);
-    border-radius:20px;
-    box-shadow:0 10px 40px rgba(12,70,61,0.18);
-    padding:24px 22px;
-    position:relative;
-    overflow:hidden;
-  }
-  #auth-screen .card::before{
-    content:"";position:absolute;top:0;left:0;right:0;height:4px;
-    background:linear-gradient(90deg, var(--a-secondary), var(--a-primary-light), var(--a-secondary));
-  }
-  #auth-screen .auth-tabs{ gap:10px; margin-bottom:20px; }
-  #auth-screen .auth-tab{
-    font-family:'Inter','Noto Sans Ethiopic',sans-serif; font-weight:600; font-size:13.5px;
-    border-radius:50px; padding:11px; border-color:var(--a-border); color:var(--a-text-2);
-    transition:all .2s ease;
-  }
-  #auth-screen .auth-tab.active{
-    background:linear-gradient(135deg, var(--a-secondary), #B87A20);
-    color:#241a05; border-color:var(--a-secondary); font-weight:700;
-    box-shadow:0 4px 14px rgba(201,146,46,0.35);
-  }
-  #auth-screen .field label{ font-family:'Inter','Noto Sans Ethiopic',sans-serif; font-size:12.5px; font-weight:500; color:var(--a-text-2); letter-spacing:0.2px; }
-  #auth-screen input{
-    background:rgba(255,255,255,0.04); border:1px solid var(--a-border); border-radius:12px;
-    color:var(--a-text); font-size:14.5px; padding:11px 13px;
-  }
-  #auth-screen input::placeholder{ color:#7C8D86; }
-  #auth-screen input:focus{ outline:none; border-color:var(--a-secondary); box-shadow:0 0 0 3px rgba(201,146,46,0.18); }
-  #auth-screen button.primary{
-    font-family:'Inter','Noto Sans Ethiopic',sans-serif; font-weight:700; letter-spacing:0.3px;
-    background:linear-gradient(135deg, var(--a-primary-light), var(--a-primary-dark));
-    border-color:var(--a-primary-dark); color:#fff; border-radius:50px; padding:11px 26px;
-    box-shadow:0 6px 20px rgba(12,70,61,0.35);
-  }
-  #auth-screen button.primary:hover{ filter:brightness(1.12); transform:translateY(-1px); }
-  #auth-screen button.ghost{
-    font-family:'Inter','Noto Sans Ethiopic',sans-serif; font-weight:600; border-radius:50px;
-    border-color:var(--a-border); color:var(--a-text-2);
-  }
-  #auth-screen button.ghost:hover{ border-color:var(--a-secondary); color:var(--a-secondary-light); }
-  #auth-screen .notice{
-    background:rgba(31,138,118,0.10); border:1px solid var(--a-border); border-radius:14px;
-    color:var(--a-text-2); font-family:'Inter','Noto Sans Ethiopic',sans-serif; font-size:12.5px;
-  }
-  #auth-screen .error-msg{ color:#E4694F; font-family:'Inter','Noto Sans Ethiopic',sans-serif; font-weight:500; }
-  #auth-screen .hint{ font-family:'Inter','Noto Sans Ethiopic',sans-serif; }
-
-  /* ===== Admin-only "📋 ሪፖርት" collapsible wrapper (worker view unaffected) ===== */
-  #report-tool-header{ cursor:pointer; user-select:none; }
-  #report-tool-header::after{ order:1; }
-  #report-tool-header .chevron{ order:2; color:var(--text-2); font-size:11px; margin-left:2px; transition:transform .2s; }
-  #report-tool-header.collapsed .chevron{ transform:rotate(-90deg); }
 </style>
 </head>
 <body>
@@ -389,9 +321,6 @@
         <span id="who-badge"></span>
       </div>
     </div>
-
-    <div class="section-title admin-accordion-title hidden" id="report-tool-header"><span class="num">02</span> 📋 ሪፖርት <span class="chevron">▾</span></div>
-    <div id="report-tool-body">
 
     <div class="section-title"><span class="num">02</span> ቀን እና የስራ ብዛት</div>
     <div class="card">
@@ -509,8 +438,6 @@
         <button type="button" class="ghost" id="btn-copy">ጽሁፉን ኮፒ አድርግ</button>
       </div>
     </div>
-
-    </div><!-- /#report-tool-body -->
 
     <div id="admin-section" class="hidden">
       <div class="section-title admin-accordion-title"><span class="num">09</span> 💬 ለሰራተኛ መልእክት ላክ <span class="chevron">▾</span></div>
@@ -1348,18 +1275,6 @@ function enterApp(){
     + (currentUser.isPremium ? ' <span class="badge-admin">⭐ ፕሪሚየም</span>' : '');
   document.getElementById('admin-section').classList.toggle('hidden', !currentUser.isAdmin);
   document.getElementById('history-title').textContent = currentUser.isAdmin ? 'ሁሉም ሪፖርቶች' : 'የኔ ያለፉ ሪፖርቶች';
-
-  const reportToolHeader = document.getElementById('report-tool-header');
-  const reportToolBody = document.getElementById('report-tool-body');
-  if(currentUser.isAdmin){
-    reportToolHeader.classList.remove('hidden');
-    reportToolHeader.classList.add('collapsed');
-    reportToolBody.classList.add('hidden');
-  }else{
-    reportToolHeader.classList.add('hidden');
-    reportToolHeader.classList.remove('collapsed');
-    reportToolBody.classList.remove('hidden');
-  }
   document.getElementById('menu-sep-session').classList.remove('hidden');
   document.getElementById('btn-open-messages').classList.remove('hidden');
   document.getElementById('btn-open-changepass').classList.remove('hidden');
@@ -2469,15 +2384,6 @@ document.getElementById('btn-backup-now').addEventListener('click', async ()=>{
   btn.disabled = false; btn.textContent = '💾 አሁኑኑ ሙሉ ምትኬ ላክ';
 });
 
-// ---- Admin-only "📋 ሪፖርት" accordion toggle ----
-document.getElementById('report-tool-header').addEventListener('click', ()=>{
-  if(!currentUser || !currentUser.isAdmin) return; // worker: this header stays hidden/inert
-  const body = document.getElementById('report-tool-body');
-  const header = document.getElementById('report-tool-header');
-  body.classList.toggle('hidden');
-  header.classList.toggle('collapsed');
-});
-
 // ---- Admin sections accordion ----
 document.querySelectorAll('#admin-section > .admin-accordion-title').forEach(title=>{
   const card = title.nextElementSibling;
@@ -2508,4 +2414,4 @@ document.querySelectorAll('#admin-section > .admin-accordion-title').forEach(tit
 })();
 </script>
 </body>
-</html>
+            </html>
