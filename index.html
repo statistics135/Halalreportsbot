@@ -2549,8 +2549,11 @@
                     completeAdminLogin();
                     document.getElementById('loginPassword').value = '';
                     showToast('✅ እንኳን ደህና መጡ!', 'success');
+                } else if (snap.empty) {
+                    errorEl.textContent = '❌ ይህ ስልክ ቁጥር (' + phone + ') በሲስተሙ ውስጥ አልተመዘገበም';
+                    errorEl.classList.add('show');
                 } else {
-                    errorEl.textContent = '❌ የተሳሳተ ስልክ ቁጥር ወይም የይለፍ ቃል';
+                    errorEl.textContent = '❌ ስልክ ቁጥሩ ተገኝቷል፣ ግን የይለፍ ቃሉ ትክክል አይደለም';
                     errorEl.classList.add('show');
                 }
             } catch (error) {
