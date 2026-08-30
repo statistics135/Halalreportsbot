@@ -25,6 +25,8 @@
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js">
     </script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js">
+    </script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js">
     </script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js">
@@ -2228,6 +2230,20 @@
         const storage = firebase.storage();
 
         // ============================================================
+        // ANONYMOUS AUTH - required by the tightened Firestore rules
+        // (they now require request.auth != null instead of being
+        // wide open to anyone). This does NOT identify who's using
+        // the app (that's still handled by the custom phone/password
+        // login below) - it just stops raw, unauthenticated scripts
+        // from hitting the database directly from outside the app.
+        // ⚠️ You must enable "Anonymous" sign-in in Firebase Console →
+        // Authentication → Sign-in method, or every Firestore call will
+        // fail with "permission-denied".
+        // ============================================================
+        let authReady = firebase.auth().signInAnonymously()
+            .catch(err => console.error('⚠️ Anonymous auth failed - enable it in Firebase Console → Authentication → Sign-in method:', err));
+
+        // ============================================================
         // PUSH NOTIFICATIONS (Firebase Cloud Messaging)
         // Requests permission, gets this device's FCM token, and saves
         // it on the logged-in staff/admin's Firestore doc so the
@@ -2239,7 +2255,7 @@
         // "Generate key pair"). Until that's filled in, this silently
         // does nothing — the rest of the app is unaffected.
         // ============================================================
-        const FCM_VAPID_KEY = ""; // ← ይህን ከ Firebase Console ኮፒ አድርገህ ለጥፍ
+        const FCM_VAPID_KEY = "BKLgvz4zGSOpIJQDj9g32_gXlt0sARWcrWFT1Pdz9UQ1tGJoxXDs5fEd-MmJ8NQHa_mtcTB7kL13djMl7mq2_1c";
 
         async function registerPushToken(staffId) {
             if (!FCM_VAPID_KEY || !staffId) return;
@@ -2464,6 +2480,7 @@
         // ============================================================
         let passwordSyncReady = (async function loadSyncedPassword() {
             try {
+                await authReady; // ✅ Firestore rules require request.auth != null now
                 const doc = await db.collection('settings').doc('admin_config').get();
                 if (doc.exists && doc.data().password) {
                     currentAdminPassword = doc.data().password;
@@ -2486,7 +2503,7 @@
             document.getElementById('loginContainer').style.display = 'none';
             document.getElementById('adminContainer').style.display = 'block';
             document.getElementById('adminName').textContent = 'አስተዳዳሪ';
-            initDashboard();
+            authReady.then(() => initDashboard());
         }
 
         // ============================================================
@@ -6916,6 +6933,7 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
             // ✅ FIX: rulesAccepted ከ Firestore ራሱ ማንበብ (browser refresh ቢደረግ እንኳን ድጋሚ አይጠየቁም)
             (async function restoreRulesGateState() {
                 try {
+                    await authReady; // ✅ Firestore rules require request.auth != null now
                     const staffDoc = await db.collection('staff').doc(technicianId).get();
                     technicianRulesAccepted = staffDoc.exists && staffDoc.data().rulesAccepted === true;
                 } catch (e) {
@@ -6926,8 +6944,10 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
                 if (!technicianRulesAccepted) showRulesGateOverlay();
             })();
 
-            techLoadRules();
-            techInitDashboard();
+            authReady.then(() => {
+                techLoadRules();
+                techInitDashboard();
+            });
             showToast('👋 እንኳን ደህና መጡ ' + technicianName + '!', 'success');
         }
 
