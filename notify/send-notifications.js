@@ -103,6 +103,32 @@ async function sendPushNotifications() {
   console.log('Push notifications done. lastProcessedAt =', maxCreatedAt);
 }
 
+// ---- 1b. Push notifications for staff job assignments (queued by index.html) ----
+async function drainStaffPushQueue() {
+  const snap = await db.collection('pushQueue').where('sent', '==', false).get();
+  if (snap.empty) { console.log('No queued staff pushes.'); return; }
+
+  for (const docSnap of snap.docs) {
+    const data = docSnap.data();
+    try {
+      const staffDoc = await db.collection('staff').doc(data.toStaffId).get();
+      const token = staffDoc.exists ? staffDoc.data().fcmToken : null;
+      if (token) {
+        await admin.messaging().send({
+          token,
+          notification: { title: data.title || 'ማሳወቂያ', body: data.body || '' }
+        });
+        console.log(`Push sent for queue item ${docSnap.id}`);
+      } else {
+        console.log(`No fcmToken for staff ${data.toStaffId}, skipping ${docSnap.id}`);
+      }
+    } catch (e) {
+      console.error(`Push send error for ${docSnap.id}:`, e.message);
+    }
+    await docSnap.ref.set({ sent: true, sentAt: Date.now() }, { merge: true });
+  }
+}
+
 // ---- 2. Reminder for customer service requests stuck in "pending" ----
 async function checkStaleServiceRequests() {
   const thresholdMs = STALE_REQUEST_HOURS * 60 * 60 * 1000;
@@ -150,6 +176,7 @@ async function runDailyBackupIfNeeded() {
 
 async function main() {
   await sendPushNotifications();
+  await drainStaffPushQueue();
   await checkStaleServiceRequests();
   await runDailyBackupIfNeeded();
 }
