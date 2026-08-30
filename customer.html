@@ -32,6 +32,8 @@
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js">
     </script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js">
+    </script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js">
     </script>
 
@@ -1962,12 +1964,16 @@
         };
         const reportApp = firebase.initializeApp(reportFirebaseConfig, "reportApp");
         const reportDb = reportApp.firestore();
+        // ✅ halal-report-2's Firestore rules now require request.auth != null
+        const reportAuthReady = reportApp.auth().signInAnonymously()
+            .catch(err => console.error('⚠️ reportApp anonymous auth failed - enable "Anonymous" sign-in for halal-report-2 in Firebase Console:', err));
 
 let allWorkersForMatch = [];
 let matchedWorkers = [];
 
 async function loadWorkersForMatch(){
     try{
+        await reportAuthReady;
         const snap = await reportDb.collection('serviceAreas').get();
         allWorkersForMatch = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     }catch(e){ console.warn('የሰራተኞች ዝርዝር ማምጣት አልተቻለም', e); }
@@ -2381,6 +2387,7 @@ orderData.suggestedWorkerName = selectedWorkerName;
 
                 // ✅ ለሰራተኛ ምድብ (staff.html) የሚያገለግል መዝገብ
                 try {
+                    await reportAuthReady;
                     const srDoc = await reportDb.collection('serviceRequests').add({
                         customerName: fullName,
                         customerPhone: phone,
