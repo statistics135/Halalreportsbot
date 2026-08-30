@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0F4C81" />
     <title>ሀላል ኤሌክትሮኒክስ</title>
-    
+    <link rel="manifest" href="manifest.json" />
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -24,6 +26,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js">
     </script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js">
     </script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js">
     </script>
@@ -2224,6 +2228,37 @@
         const storage = firebase.storage();
 
         // ============================================================
+        // PUSH NOTIFICATIONS (Firebase Cloud Messaging)
+        // Requests permission, gets this device's FCM token, and saves
+        // it on the logged-in staff/admin's Firestore doc so the
+        // 5-minute GitHub Actions job (notify/send-notifications.js)
+        // can push real notifications to it even when the app is closed.
+        //
+        // ⚠️ REQUIRES SETUP: paste your VAPID key below (Firebase Console
+        // → Project settings → Cloud Messaging → Web Push certificates →
+        // "Generate key pair"). Until that's filled in, this silently
+        // does nothing — the rest of the app is unaffected.
+        // ============================================================
+        const FCM_VAPID_KEY = ""; // ← ይህን ከ Firebase Console ኮፒ አድርገህ ለጥፍ
+
+        async function registerPushToken(staffId) {
+            if (!FCM_VAPID_KEY || !staffId) return;
+            if (!('Notification' in window) || !navigator.serviceWorker) return;
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') return;
+                const messaging = firebase.messaging();
+                const token = await messaging.getToken({ vapidKey: FCM_VAPID_KEY });
+                if (token) {
+                    await db.collection('staff').doc(staffId).update({ fcmToken: token });
+                    console.log('✅ Push notification token saved');
+                }
+            } catch (err) {
+                console.error('Push registration failed (non-fatal):', err);
+            }
+        }
+
+        // ============================================================
         // ADMIN PASSWORD
         // ============================================================
         let ADMIN_PASSWORD = "HalAl2026";
@@ -2447,7 +2482,7 @@
         // ============================================================
         // AUTH
         // ============================================================
-        if (sessionStorage.getItem('adminLoggedIn') === 'true') {
+        if (localStorage.getItem('adminLoggedIn') === 'true') {
             document.getElementById('loginContainer').style.display = 'none';
             document.getElementById('adminContainer').style.display = 'block';
             document.getElementById('adminName').textContent = 'አስተዳዳሪ';
@@ -2469,12 +2504,13 @@
             else subtitle.textContent = 'ማጽደቅ በመጠበቅ ላይ...';
         }
 
-        function completeAdminLogin() {
-            sessionStorage.setItem('adminLoggedIn', 'true');
+        function completeAdminLogin(staffId) {
+            localStorage.setItem('adminLoggedIn', 'true');
             document.getElementById('loginContainer').style.display = 'none';
             document.getElementById('adminContainer').style.display = 'block';
             document.getElementById('adminName').textContent = 'አስተዳዳሪ';
             initDashboard();
+            if (staffId) registerPushToken(staffId);
         }
 
         // ✅ የቆየው single-secret አድሚን ኮድ አሁን ደግሞ የ"አድሚን ልዩ ምዝገባ ኮድ" ሆኖ ያገለግላል፣
@@ -2484,8 +2520,9 @@
                 const existing = await db.collection('staff').where('phone', '==', phone).get();
                 if (!existing.empty) {
                     await db.collection('staff').doc(existing.docs[0].id).update({ password, role: 'admin', status: 'active' });
+                    return existing.docs[0].id;
                 } else {
-                    await db.collection('staff').add({
+                    const ref = await db.collection('staff').add({
                         name: 'አስተዳዳሪ',
                         phone: phone,
                         password: password,
@@ -2493,8 +2530,9 @@
                         status: 'active',
                         createdAt: new Date()
                     });
+                    return ref.id;
                 }
-            } catch (e) { console.warn('⚠️ Admin staff upsert failed:', e); }
+            } catch (e) { console.warn('⚠️ Admin staff upsert failed:', e); return null; }
         }
 
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
@@ -2536,7 +2574,7 @@
                         errorEl.textContent = '⛔ ምዝገባዎ ውድቅ ተደርጓል';
                         errorEl.classList.add('show');
                     } else if (data.role === 'admin') {
-                        completeAdminLogin();
+                        completeAdminLogin(matchedDoc.id);
                         document.getElementById('loginPassword').value = '';
                         showToast('✅ እንኳን ደህና መጡ!', 'success');
                     } else {
@@ -2545,8 +2583,8 @@
                     }
                 } else if (password === currentAdminPassword) {
                     // ✅ Legacy master-admin code fallback - ወደ staff ሪከርድ በራስ-ሰር ይሸጋገራል
-                    await upsertAdminStaffRecord(phone, password);
-                    completeAdminLogin();
+                    const adminStaffId = await upsertAdminStaffRecord(phone, password);
+                    completeAdminLogin(adminStaffId);
                     document.getElementById('loginPassword').value = '';
                     showToast('✅ እንኳን ደህና መጡ!', 'success');
                 } else if (snap.empty) {
@@ -2639,7 +2677,7 @@
 
 ⏰ ${formatEthDateTime(new Date())}
                     `);
-                    completeAdminLogin();
+                    completeAdminLogin(docRef.id);
                     showToast(`✅ እንኳን ደህና መጡ ${name}!`, 'success');
                 } else {
                     const dashboardUrl = location.origin + location.pathname;
@@ -2648,7 +2686,7 @@
                         '✅ ዳሽቦርድ ከፍቶ ማጽደቅ',
                         dashboardUrl
                     );
-                    sessionStorage.setItem('pendingStaffId', docRef.id);
+                    localStorage.setItem('pendingStaffId', docRef.id);
                     showAuthPane('pending');
                     listenForApproval(docRef.id);
                 }
@@ -2673,16 +2711,16 @@
                 const data = doc.data();
                 if (data.status === 'active') {
                     if (pendingApprovalUnsub) { pendingApprovalUnsub(); pendingApprovalUnsub = null; }
-                    sessionStorage.removeItem('pendingStaffId');
+                    localStorage.removeItem('pendingStaffId');
                     showToast('🎉 ተመዝጋቢነትዎ ጸድቋል!', 'success');
                     if (data.role === 'admin') {
-                        completeAdminLogin();
+                        completeAdminLogin(staffId);
                     } else {
                         await completeTechnicianLogin(staffId, data);
                     }
                 } else if (data.status === 'rejected') {
                     if (pendingApprovalUnsub) { pendingApprovalUnsub(); pendingApprovalUnsub = null; }
-                    sessionStorage.removeItem('pendingStaffId');
+                    localStorage.removeItem('pendingStaffId');
                     showToast('⛔ ምዝገባዎ ውድቅ ተደርጓል', 'error');
                     showAuthPane('login');
                 }
@@ -2696,15 +2734,15 @@
 
         // ገፁ ቢታደስ (refresh) እንኳን ገና በመጠባበቅ ላይ ያለ ምዝገባ ካለ መጠባበቁን ይቀጥላል
         (function resumePendingIfAny() {
-            const pid = sessionStorage.getItem('pendingStaffId');
-            if (pid && sessionStorage.getItem('adminLoggedIn') !== 'true' && !sessionStorage.getItem('techId')) {
+            const pid = localStorage.getItem('pendingStaffId');
+            if (pid && localStorage.getItem('adminLoggedIn') !== 'true' && !localStorage.getItem('techId')) {
                 showAuthPane('pending');
                 listenForApproval(pid);
             }
         })();
 
         document.getElementById('logoutBtn').addEventListener('click', function() {
-            sessionStorage.removeItem('adminLoggedIn');
+            localStorage.removeItem('adminLoggedIn');
             document.getElementById('adminContainer').style.display = 'none';
             document.getElementById('loginContainer').style.display = 'flex';
             showAuthPane('login');
@@ -3291,6 +3329,7 @@
                             <option value="">ምረጥ</option>
                             ${techOptions}
                         </select>
+                        <button class="btn btn-xs btn-secondary" onclick="recommendTechnician('${order.id}')" title="ራስ-ሰር ዝቅተኛ ስራ ያለበትን ቴክኒሻን ምከር"><i class="fas fa-robot"></i></button>
                         <button class="btn btn-xs btn-success" onclick="assignOrder('${order.id}')"><i class="fas fa-check"></i> ምድብ</button>
                         <button class="btn btn-xs btn-danger" onclick="deleteOrder('${order.id}')"><i class="fas fa-trash"></i></button>
                     `;
@@ -3330,6 +3369,87 @@
             // ✅ FIX: Ethiopian picker dropdowns እራሳቸውም ማጽዳት አለባቸው (hidden input ብቻ ሳይሆን)
             document.getElementById('orderDateFilterEthContainer').innerHTML = buildEthiopianPickerHTML('orderDateFilterEth', 'orderDateFilter', '');
             renderOrders();
+        }
+
+        // ============================================================
+        // IMAGE COMPRESSION - shrink photos before upload (max 1600px
+        // wide, JPEG quality 0.72) so uploads are fast on slow data and
+        // Storage usage stays low. Falls back to the original file if
+        // anything goes wrong (e.g. non-image or very old browser).
+        // ============================================================
+        function compressImageFile(file, maxWidth = 1600, quality = 0.72) {
+            return new Promise((resolve) => {
+                if (!file || !file.type || !file.type.startsWith('image/')) {
+                    resolve(file);
+                    return;
+                }
+                const img = new Image();
+                const reader = new FileReader();
+                reader.onload = (e) => { img.src = e.target.result; };
+                reader.onerror = () => resolve(file);
+                img.onload = () => {
+                    try {
+                        let { width, height } = img;
+                        if (width > maxWidth) {
+                            height = Math.round(height * (maxWidth / width));
+                            width = maxWidth;
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                        canvas.toBlob((blob) => {
+                            if (!blob) { resolve(file); return; }
+                            resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
+                        }, 'image/jpeg', quality);
+                    } catch (err) {
+                        console.error('Image compression failed, using original:', err);
+                        resolve(file);
+                    }
+                };
+                img.onerror = () => resolve(file);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // ============================================================
+        // AUTO-ASSIGN: recommend the least-busy active technician
+        // (counts each technician's currently 'Assigned'/open jobs and
+        //  pre-selects whoever has the fewest, so the admin just confirms)
+        // ============================================================
+        function recommendTechnician(orderId) {
+            const activeTechs = allTechnicians.filter(t => !t.status || t.status === 'active');
+            if (activeTechs.length === 0) {
+                showToast('ንቁ ቴክኒሻን አልተገኘም / No active technician found', 'error');
+                return;
+            }
+
+            // Count open jobs (Pending/Assigned) currently on each technician
+            const load = {};
+            activeTechs.forEach(t => load[t.name] = 0);
+            allOrders.forEach(o => {
+                if (o.status === 'Assigned' && o.technician && load.hasOwnProperty(o.technician)) {
+                    load[o.technician]++;
+                }
+            });
+
+            // Pick the technician with the fewest open jobs (round-robin on ties)
+            let best = activeTechs[0].name;
+            let bestLoad = load[best];
+            activeTechs.forEach(t => {
+                if (load[t.name] < bestLoad) {
+                    best = t.name;
+                    bestLoad = load[t.name];
+                }
+            });
+
+            const select = document.querySelector(`.assignSelect[data-id="${orderId}"]`);
+            if (select) {
+                select.value = best;
+                select.style.borderColor = 'var(--success)';
+                select.style.background = '#F0FDF4';
+            }
+            showToast(`🤖 ተመክሯል፡ ${best} (አሁን ${bestLoad} ክፍት ስራ አለው) — "ምድብ" ተጫን ለማረጋገጥ`, 'success');
         }
 
         // ============================================================
@@ -3389,6 +3509,17 @@
                     // ገና Telegram ካልተገናኘ አድሚን group ላይ ብቻ ይላካል + ማስጠንቀቂያ
                     await sendTelegramNotification(jobMessage + `\n\n⚠️ *ማሳሰቢያ:* ${techName} Telegram ገና አልተገናኘም - ይህ message ለ አድሚን group ብቻ ደርሷል።`);
                     showToast(`⚠️ የ ${techName} Telegram አልተገናኘም - message ለ admin group ብቻ ተልኳል`, 'error');
+                }
+
+                // ✅ Push notification (FCM) queue - handled by the 5-min notify job
+                if (assignedTech && assignedTech.id) {
+                    await db.collection('pushQueue').add({
+                        toStaffId: assignedTech.id,
+                        title: '📋 አዲስ ስራ ተመድቦልዎታል',
+                        body: `${order.appliance || 'ስራ'} - ${order.fullName || ''} (${order.address || ''})`,
+                        createdAt: Date.now(),
+                        sent: false
+                    });
                 }
 
                 showToast(`✅ ስራው ለ ${techName} ተመድቧል / Assigned to ${techName}`, 'success');
@@ -4102,12 +4233,17 @@
 
             const rangeBtn = (val, label) => `<button class="btn btn-sm ${rangeFilter === val ? 'btn-primary' : 'btn-outline'}" onclick="showTechIncomeSummary('${val}')">${label}</button>`;
 
+            window._techSummaryRows = rows; // used by exportTechSummaryCSV()
+
             let html = `
-                <div class="flex" style="margin-bottom:16px;">
-                    ${rangeBtn('today', 'ዛሬ')}
-                    ${rangeBtn('week', 'ባለፉት 7 ቀናት')}
-                    ${rangeBtn('month', 'ባለፉት 30 ቀናት')}
-                    ${rangeBtn('all', 'ጠቅላላ')}
+                <div class="flex" style="margin-bottom:16px; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                    <div class="flex" style="gap:6px;">
+                        ${rangeBtn('today', 'ዛሬ')}
+                        ${rangeBtn('week', 'ባለፉት 7 ቀናት')}
+                        ${rangeBtn('month', 'ባለፉት 30 ቀናት')}
+                        ${rangeBtn('all', 'ጠቅላላ')}
+                    </div>
+                    <button class="btn btn-sm btn-outline" onclick="exportTechSummaryCSV()"><i class="fas fa-file-excel"></i> Excel አውርድ</button>
                 </div>
                 <div style="background:var(--bg); border-radius:10px; padding:14px; margin-bottom:16px; text-align:center;">
                     <div style="font-size:0.85rem; color:var(--text-muted);">ጠቅላላ ገቢ (ከ ሁሉም ቴክኒሻን)</div>
@@ -4134,6 +4270,31 @@
             }
 
             openModal('💰 በቴክኒሻን ገቢ ማጠቃለያ', html);
+        }
+
+        // ============================================================
+        // EXCEL EXPORT (CSV - opens directly in Excel, no library needed)
+        // ============================================================
+        function exportTechSummaryCSV() {
+            const rows = window._techSummaryRows || [];
+            if (rows.length === 0) {
+                showToast('የሚወርድ ዳታ የለም', 'error');
+                return;
+            }
+            let csv = '\uFEFF' + 'ቴክኒሻን,ስራዎች,ገቢ (ብር),ሪፖርቶች,ያልጸደቁ\n';
+            rows.forEach(r => {
+                csv += `"${(r.name || '').replace(/"/g, '""')}",${r.jobs},${r.income},${r.reports},${r.unapproved}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tech-income-summary-${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('✅ Excel ፋይል ወርዷል!', 'success');
         }
 
         function showAddTechModal() {
@@ -5312,9 +5473,9 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
                 isOnline: true
             });
 
-            sessionStorage.setItem('techName', technicianName);
-            sessionStorage.setItem('techId', technicianId);
-            sessionStorage.setItem('techTelegram', technicianTelegram);
+            localStorage.setItem('techName', technicianName);
+            localStorage.setItem('techId', technicianId);
+            localStorage.setItem('techTelegram', technicianTelegram);
 
             document.getElementById('loginContainer').style.display = 'none';
             document.getElementById('appContainer').style.display = 'block';
@@ -5328,6 +5489,7 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
                 showRulesGateOverlay();
             }
             techInitDashboard();
+            registerPushToken(technicianId);
 
             showToast('✅ እንኳን ደህና መጡ ' + technicianName + '!', 'success');
 
@@ -6367,7 +6529,7 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
                 technicianTelegram = entered.trim();
                 try {
                     await db.collection('staff').doc(technicianId).update({ telegramUsername: technicianTelegram });
-                    sessionStorage.setItem('techTelegram', technicianTelegram);
+                    localStorage.setItem('techTelegram', technicianTelegram);
                 } catch (e) {
                     showToast('❌ መለያ ማስቀመጥ አልተቻለም: ' + e.message, 'error');
                     return;
@@ -6608,22 +6770,24 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
             const remarks = document.getElementById('reportRemarks').value.trim();
             const readyTomorrow = document.querySelector('input[name="readyTomorrow"]:checked')?.value || '';
 
-            // Upload warranty photos
+            // Upload warranty photos (compressed first so uploads are fast and data-friendly)
             const warrantyFiles = document.getElementById('reportWarrantyPhotos').files;
             const warrantyPhotoURLs = [];
             for (let file of warrantyFiles) {
+                const compressed = await compressImageFile(file);
                 const ref = storage.ref(`reports/${technicianName}/${Date.now()}_${file.name}`);
-                await ref.put(file);
+                await ref.put(compressed);
                 const url = await ref.getDownloadURL();
                 warrantyPhotoURLs.push(url);
             }
 
-            // Upload bank receipts
+            // Upload bank receipts (compressed first)
             const receiptFiles = document.getElementById('reportBankReceipts').files;
             const receiptURLs = [];
             for (let file of receiptFiles) {
+                const compressed = await compressImageFile(file);
                 const ref = storage.ref(`reports/${technicianName}/${Date.now()}_${file.name}`);
-                await ref.put(file);
+                await ref.put(compressed);
                 const url = await ref.getDownloadURL();
                 receiptURLs.push(url);
             }
@@ -6712,9 +6876,9 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
                         lastLogout: new Date()
                     });
                 }
-                sessionStorage.removeItem('techName');
-                sessionStorage.removeItem('techId');
-                sessionStorage.removeItem('techTelegram');
+                localStorage.removeItem('techName');
+                localStorage.removeItem('techId');
+                localStorage.removeItem('techTelegram');
 
                 if (intervalHeartbeat) {
                     clearInterval(intervalHeartbeat);
@@ -6737,13 +6901,13 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
         // ============================================================
         // CHECK SESSION
         // ============================================================
-        const savedName = sessionStorage.getItem('techName');
-        const savedId = sessionStorage.getItem('techId');
+        const savedName = localStorage.getItem('techName');
+        const savedId = localStorage.getItem('techId');
 
         if (savedName && savedId) {
             technicianName = savedName;
             technicianId = savedId;
-            technicianTelegram = sessionStorage.getItem('techTelegram') || '';
+            technicianTelegram = localStorage.getItem('techTelegram') || '';
 
             document.getElementById('loginContainer').style.display = 'none';
             document.getElementById('appContainer').style.display = 'block';
@@ -6774,8 +6938,54 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
         console.log('👨‍🔧 ቴክኒሻን: ' + (technicianName || 'Not logged in'));
         console.log('📋 ስራዎች: ' + myOrders.length);
         console.log('📊 ዕለታዊ ሪፖርት: ንቁ');
-    
+
+        // ============================================================
+        // PWA: register service worker + smart "Install App" banner
+        // (only shows if the app isn't already installed, and only
+        //  after the browser signals it's actually installable)
+        // ============================================================
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js').catch(err => console.error('SW register failed', err));
+        }
+
+        let deferredInstallPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+            if (localStorage.getItem('pwaInstallDismissed') === 'true') return;
+            if (window.matchMedia('(display-mode: standalone)').matches) return;
+            document.getElementById('pwaInstallBanner')?.classList.add('show');
+        });
+
+        function installPwaApp() {
+            const banner = document.getElementById('pwaInstallBanner');
+            if (deferredInstallPrompt) {
+                deferredInstallPrompt.prompt();
+                deferredInstallPrompt.userChoice.finally(() => {
+                    deferredInstallPrompt = null;
+                    banner?.classList.remove('show');
+                });
+            } else {
+                banner?.classList.remove('show');
+            }
+        }
+
+        function dismissPwaInstall() {
+            localStorage.setItem('pwaInstallDismissed', 'true');
+            document.getElementById('pwaInstallBanner')?.classList.remove('show');
+        }
     </script>
+
+    <!-- PWA Install Banner (hidden until the browser says the app is installable) -->
+    <div id="pwaInstallBanner" style="position:fixed; left:12px; right:12px; bottom:-100px; z-index:9999; background:var(--primary-gradient, linear-gradient(135deg,#0F4C81,#0A3A63)); color:#fff; border-radius:14px; padding:14px 16px; display:flex; align-items:center; gap:12px; box-shadow:0 8px 30px rgba(0,0,0,0.25); transition:bottom .3s ease;">
+        <i class="fas fa-mobile-alt" style="font-size:1.4rem;"></i>
+        <div style="flex:1; font-size:0.85rem; line-height:1.3;">
+            📲 ይህን መተግበሪያ በስልክዎ ላይ ይጫኑት — በፍጥነት ለመክፈት እና ማሳወቂያ ለማግኘት
+        </div>
+        <button onclick="installPwaApp()" style="background:#fff; color:var(--primary,#0F4C81); border:none; border-radius:8px; padding:8px 14px; font-weight:700; cursor:pointer; white-space:nowrap;">ጫን</button>
+        <button onclick="dismissPwaInstall()" style="background:transparent; color:#fff; border:none; font-size:1.1rem; cursor:pointer; padding:4px;">✕</button>
+    </div>
+    <style>#pwaInstallBanner.show { bottom: 16px !important; }</style>
 
 </body>
 </html>
