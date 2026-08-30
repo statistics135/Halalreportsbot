@@ -2211,6 +2211,23 @@
 
     <div id="toast" class="toast"></div>
 
+    <!-- ============================================================
+    ✅ FIX: this modal container was referenced by openModal()/closeModal()
+    (order details, technician details, income summary, add customer/
+    technician, invite staff, add inventory, etc.) but never existed in
+    the page - meaning ALL of those popups silently failed to open.
+    ============================================================ -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle"></h2>
+                <button class="close-btn" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer" id="modalFooter"></div>
+        </div>
+    </div>
+
 <script>
 
         // ============================================================
