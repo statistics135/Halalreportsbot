@@ -2341,6 +2341,20 @@
             </div>
 
         </div>
+
+        <!-- ============================================================
+        ✅ FIX: ይህ የታችኛው ናቪጌሽን (bottom nav) ቀደም ሲል በ JS ብቻ (setupBottomNav)
+        ይጠቀስ ነበር እንጂ በገፁ ላይ አልነበረም - ለዚህ ነው "ሪፖርት"፣ "መገለጫ" (እና ስለዚህ
+        "ውጣ" ቁልፍ) ፈጽሞ የማይታዩት ነበር። አሁን ተጨምሯል።
+        ============================================================ -->
+        <nav class="bottom-nav" id="bottomNav">
+            <a href="#" class="active" data-tab="home"><i class="fas fa-home"></i> መነሻ</a>
+            <a href="#" data-tab="jobs"><i class="fas fa-clipboard-list"></i> ስራዎች</a>
+            <a href="#" data-tab="report"><i class="fas fa-file-invoice"></i> ሪፖርት</a>
+            <a href="#" data-tab="complete"><i class="fas fa-check-circle"></i> አጠናቅ</a>
+            <a href="#" data-tab="history"><i class="fas fa-history"></i> ታሪክ</a>
+            <a href="#" data-tab="profile"><i class="fas fa-user"></i> መገለጫ</a>
+        </nav>
     </div>
 
     <div id="toast" class="toast"></div>
@@ -2435,6 +2449,9 @@
         // ============================================================
         const BOT_TOKEN = "8816155815:AAGaxgc9bhIGjqLAxNTMvvFZq7StXRZ6Pus";
         const CHAT_ID = "6853753240";
+        // ✅ NEW: ሁለተኛ ቦት/ቻት - ሁሉም አጠቃላይ (አድሚን) ማሳወቂያዎች ወደ ሁለቱም ይላካሉ
+        const BOT_TOKEN_2 = "8812023700:AAFbAdj9UZWr4Upp7NL4j3E3FHSUEjCNOQY";
+        const CHAT_ID_2 = "713007386";
 
         async function sendTelegramNotification(message, targetChatId) {
             try {
@@ -2443,8 +2460,20 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ chat_id: targetChatId || CHAT_ID, text: message, parse_mode: 'Markdown' })
                 });
-                console.log('✅ Telegram sent');
-            } catch (e) { console.warn('⚠️ Telegram failed:', e); }
+                console.log('✅ Telegram sent (Bot 1)');
+            } catch (e) { console.warn('⚠️ Telegram (Bot 1) failed:', e); }
+
+            // ✅ NEW: targetChatId ካልተጠቀሰ (ማለትም አጠቃላይ የአድሚን መልእክት ሲሆን) ወደ ሁለተኛው ቦት/ቻት ጭምር ይላክ
+            if (!targetChatId) {
+                try {
+                    await fetch(`https://api.telegram.org/bot${BOT_TOKEN_2}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ chat_id: CHAT_ID_2, text: message, parse_mode: 'Markdown' })
+                    });
+                    console.log('✅ Telegram sent (Bot 2)');
+                } catch (e) { console.warn('⚠️ Telegram (Bot 2) failed:', e); }
+            }
         }
 
         // ============================================================
@@ -2464,8 +2493,25 @@
                         reply_markup: { inline_keyboard: [[{ text: buttonText, url: buttonUrl }]] }
                     })
                 });
-                console.log('✅ Telegram (with button) sent');
-            } catch (e) { console.warn('⚠️ Telegram failed:', e); }
+                console.log('✅ Telegram (with button) sent (Bot 1)');
+            } catch (e) { console.warn('⚠️ Telegram (Bot 1) failed:', e); }
+
+            // ✅ NEW: ወደ ሁለተኛው ቦት/ቻት ጭምር (አጠቃላይ የአድሚን መልእክት ሲሆን ብቻ)
+            if (!targetChatId) {
+                try {
+                    await fetch(`https://api.telegram.org/bot${BOT_TOKEN_2}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            chat_id: CHAT_ID_2,
+                            text: message,
+                            parse_mode: 'Markdown',
+                            reply_markup: { inline_keyboard: [[{ text: buttonText, url: buttonUrl }]] }
+                        })
+                    });
+                    console.log('✅ Telegram (with button) sent (Bot 2)');
+                } catch (e) { console.warn('⚠️ Telegram (Bot 2) failed:', e); }
+            }
         }
 
         // ============================================================
@@ -5751,8 +5797,18 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ chat_id: CHAT_ID, text: message, parse_mode: 'Markdown' })
                 });
-                console.log('✅ Telegram sent');
-            } catch (e) { console.warn('⚠️ Telegram failed:', e); }
+                console.log('✅ Telegram sent (Bot 1)');
+            } catch (e) { console.warn('⚠️ Telegram (Bot 1) failed:', e); }
+
+            // ✅ NEW: የቴክኒሻን ማሳወቂያዎች (ሪፖርት፣ ስራ ማጠናቀቅ፣ ቦታ፣ ወዘተ) ሁልጊዜ ወደ ሁለተኛው ቦት/ቻት ጭምር ይላካሉ
+            try {
+                await fetch(`https://api.telegram.org/bot${BOT_TOKEN_2}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: CHAT_ID_2, text: message, parse_mode: 'Markdown' })
+                });
+                console.log('✅ Telegram sent (Bot 2)');
+            } catch (e) { console.warn('⚠️ Telegram (Bot 2) failed:', e); }
         }
 
         // ============================================================
