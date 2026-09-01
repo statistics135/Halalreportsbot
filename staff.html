@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ሠራተኛ ገፅ እየተከፈተ ነው...</title>
+<meta http-equiv="refresh" content="0; url=index.html">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  html,body{
+    margin:0; height:100%;
+    background:#14171A;
+    color:#ECECE9;
+    font-family:'Noto Sans Ethiopic', sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    text-align:center;
+  }
+  .box{ padding:24px; }
+  .spinner{
+    width:38px; height:38px; margin:0 auto 16px;
+    border:3px solid #2E343A; border-top-color:#F5A623;
+    border-radius:50%;
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  p{ color:#9AA3AB; font-size:15px; margin:0; }
+  a{ color:#F5A623; }
+</style>
+<script>
+  // staff.html is a thin redirect: the real staff/admin dashboard lives at index.html.
+  // Preserve any query string (e.g. ?approveRequest=<id> from the Telegram "👷 መድብ" button).
+  location.replace('index.html' + location.search + location.hash);
+</script>
+</head>
+<body>
+  <div class="box">
+    <div class="spinner"></div>
+    <p>ወደ ሠራተኛ ገፅ በመዛወር ላይ...<br>
+    <a href="index.html">እዚህ ይጫኑ</a> ካልተዛወረ</p>
+  </div>
+</body>
+</html>
