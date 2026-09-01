@@ -146,6 +146,29 @@
         .bw-toggle-btn:hover {
             background: var(--primary);
             }
+        /* ✅ NEW: Install App icon button - ገጹ በሙሉ ላይ ይታያል */
+        .pwa-install-btn {
+            position: fixed;
+            bottom: 104px;
+            right: 24px;
+            z-index: 999;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--secondary-gradient, linear-gradient(135deg, #45B8EE, #2DAAE1));
+            color: #fff;
+            border: none;
+            box-shadow: var(--shadow-lg);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        .pwa-install-btn.show { display: flex; }
+        .pwa-install-btn:hover { transform: scale(1.08); }
+        .pwa-install-btn:active { transform: scale(0.95); }
         /* ============================================================
            RESET & BASE
            ============================================================ */
@@ -1483,6 +1506,7 @@
                         <li><a href="#shop">🛍️ ሱቅ</a></li>
                         <li><a href="#about">ስለእኛ</a></li>
                         <li><a href="#testimonials">ምስክሮች</a></li>
+                        <li><a href="#feedback">📝 አስተያየት</a></li>
                         <li><a href="#contact">አግኙን</a></li>
                         <li><a href="#tracking">📦 መከታተያ</a></li>
                         <li><a href="admin.html" class="btn btn-sm" style="background:var(--primary-dark); color:#fff; box-shadow:none;">⚙️ አስተዳደር</a></li>
@@ -1749,6 +1773,40 @@
     </section>
 
     <!-- ============================================================
+    ✅ NEW: CUSTOMER FEEDBACK / COMMENT SECTION (አስተያየት መስጫ)
+    ============================================================ -->
+    <section class="testimonials" id="feedback" style="padding-top:0;">
+        <div class="container">
+            <div class="section-header fade-up">
+                <p class="subtitle">📝 አስተያየት ይስጡን</p>
+                <h2>የእርስዎ <span>አስተያየት</span></h2>
+                <p>አገልግሎታችንን እንዴት እናሻሽል? አስተያየትዎ ለእኛ ውድ ነው።</p>
+            </div>
+            <form class="request-form" id="feedbackForm" style="max-width:640px; margin:0 auto;">
+                <div class="form-row">
+                    <input type="text" placeholder="ሙሉ ስም (አማራጭ)" id="feedbackName" />
+                    <input type="tel" placeholder="ስልክ ቁጥር (አማራጭ)" id="feedbackPhone" />
+                </div>
+                <select id="feedbackRating" required>
+                    <option value="">አገልግሎቱን ይገምግሙ...</option>
+                    <option value="5">⭐⭐⭐⭐⭐ በጣም ጥሩ</option>
+                    <option value="4">⭐⭐⭐⭐ ጥሩ</option>
+                    <option value="3">⭐⭐⭐ መካከለኛ</option>
+                    <option value="2">⭐⭐ ደካማ</option>
+                    <option value="1">⭐ በጣም ደካማ</option>
+                </select>
+                <textarea placeholder="አስተያየትዎን እዚህ ይጻፉ..." id="feedbackMessage" required></textarea>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-paper-plane"></i> አስተያየት ላክ
+                </button>
+                <div id="feedbackSuccess" style="display:none; margin-top:12px; padding:12px; border-radius:8px; background:#DCFCE7; color:#166534; text-align:center;">
+                    ✅ አመሰግናለሁ! አስተያየትዎ ደርሶናል።
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- ============================================================
     FAQ SECTION
     ============================================================ -->
     <section class="faq" id="faq">
@@ -1948,7 +2006,10 @@
     </div>
         <button type="button" class="bw-toggle-btn" id="themeToggleBtn" title="ገጽታ ቀይር (ቀን/ማታ)">
         <i class="fas fa-moon"></i>
-        </button> 
+        </button>
+        <!-- ✅ NEW: መተግበሪያ መጫኛ (Install App) አይከን -->
+        <button type="button" id="pwaInstallBtn" class="pwa-install-btn" title="መተግበሪያውን ጫን" aria-label="Install App"><i class="fas fa-download"></i></button>
+        
     <!-- ============================================================
     FOOTER
     ============================================================ -->
@@ -1967,6 +2028,7 @@
                 <a href="#services">አገልግሎቶች</a>
                 <a href="#about">ስለእኛ</a>
                 <a href="#testimonials">ምስክሮች</a>
+                <a href="#feedback">📝 አስተያየት</a>
                 <a href="#contact">አግኙን</a>
                 <a href="#request">ጥገና ይጠይቁ</a>
                 <a href="#tracking">📦 መከታተያ</a>
@@ -2114,6 +2176,60 @@ function updateAddressMatch(){
                 navigator.serviceWorker.register('service-worker.js').catch(err => console.error('SW register failed', err));
             });
         }
+
+        // ============================================================
+        // ✅ NEW: PWA install - ቋሚ (ሁልጊዜ የሚታይ) የመጫኛ አይከን፣ browser ራሱ
+        // ኦቶማቲክ መጫኛ ካልደገፈ (ለምሳሌ iPhone/Safari) የእጅ መመሪያ ያሳያል።
+        // ============================================================
+        let deferredInstallPrompt = null;
+        const pwaInstallBtn = document.getElementById('pwaInstallBtn');
+
+        function isAppAlreadyInstalled() {
+            return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        }
+
+        if (pwaInstallBtn && !isAppAlreadyInstalled()) {
+            pwaInstallBtn.classList.add('show');
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+            if (pwaInstallBtn && !isAppAlreadyInstalled()) pwaInstallBtn.classList.add('show');
+        });
+
+        window.addEventListener('appinstalled', () => {
+            deferredInstallPrompt = null;
+            pwaInstallBtn?.classList.remove('show');
+        });
+
+        function showManualInstallInstructions() {
+            const ua = navigator.userAgent || '';
+            const isIOS = /iphone|ipad|ipod/i.test(ua);
+            const isAndroid = /android/i.test(ua);
+            let msg;
+            if (isIOS) {
+                msg = '📲 በ iPhone/iPad ላይ ለመጫን፦\n1. ከታች ያለውን Share (⬆️ ስኩዌር) ቁልፍ ይንኩ\n2. "Add to Home Screen" የሚለውን ይምረጡ\n3. "Add" ይጫኑ';
+            } else if (isAndroid) {
+                msg = '📲 በ Android ላይ ለመጫን፦\n1. የ Browser ምናሌ (⋮ ሶስት ነጥብ) ይንኩ\n2. "Install App" ወይም "Add to Home screen" የሚለውን ይምረጡ';
+            } else {
+                msg = '📲 ለመጫን፦ በ Browser አድራሻ መስመር (address bar) በስተቀኝ ያለውን የመጫኛ (⊕/Install) አይከን ይንኩ፣ ወይም የ Browser ምናሌ ውስጥ "Install App" የሚለውን ይምረጡ።';
+            }
+            alert(msg);
+        }
+
+        function installPwaApp() {
+            if (deferredInstallPrompt) {
+                deferredInstallPrompt.prompt();
+                deferredInstallPrompt.userChoice.finally(() => {
+                    deferredInstallPrompt = null;
+                });
+            } else {
+                showManualInstallInstructions();
+            }
+        }
+
+        pwaInstallBtn?.addEventListener('click', installPwaApp);
 
         // ============================================================
         // TELEGRAM BOT
@@ -2435,9 +2551,11 @@ function updateAddressMatch(){
     showToast('⚠️ እባክዎ አድራሻ ያስገቡ', 'error');
     return;
 }
+// ✅ FIX: ከዚህ በፊት በዚህ አካባቢ ተመዝጋቢ ቴክኒሻን ካልተገኘ ትዕዛዙ ሙሉ በሙሉ እንዳይላክ ይከለክል ነበር
+// (ደንበኛው "ይቅርታ" መልዕክት እያየ ምንም ማድረግ አይችልም ነበር)። ይህ ግጥሚያ ጠቋሚ ብቻ ስለሆነ እና
+// ሰራተኞች በኋላ በእጅ ስለሚመድቡ፣ ተመሳሳይ ቴክኒሻን ባይገኝም እንኳ ትዕዛዙ እንዲላክ ተደርጓል።
 if (matchedWorkers.length === 0) {
-    showToast('❌ በዚህ አካባቢ የተመዘገበ ባለሙያ ስለሌለ መላክ አይቻልም', 'error');
-    return;
+    showToast('ℹ️ በዚህ አካባቢ በቀጥታ የተመዘገበ ባለሙያ አልተገኘም፣ ነገር ግን ትዕዛዝዎ ተልኮ ባለሙያ በእጅ ይመደብልዎታል።', 'success');
 }
 const selectedWorkerOpt = document.getElementById('matchedWorkerSelect').selectedOptions[0];
 const selectedWorkerPhone = selectedWorkerOpt ? selectedWorkerOpt.value : '';
@@ -2569,6 +2687,77 @@ matchedWorkers = [];
             submitBtn.textContent = originalText;
             submitBtn.disabled = false;
         });
+
+        // ============================================================
+        // ✅ NEW: CUSTOMER FEEDBACK FORM (አስተያየት መስጫ)
+        // ============================================================
+        const feedbackFormEl = document.getElementById('feedbackForm');
+        if (feedbackFormEl) {
+            feedbackFormEl.addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const fName = document.getElementById('feedbackName').value.trim();
+                const fPhone = document.getElementById('feedbackPhone').value.trim();
+                const fRating = document.getElementById('feedbackRating').value;
+                const fMessage = document.getElementById('feedbackMessage').value.trim();
+
+                if (!fRating || !fMessage) {
+                    showToast('⚠️ እባክዎ ደረጃ እና አስተያየት ይሙሉ', 'error');
+                    return;
+                }
+
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalText = submitBtn.textContent;
+                submitBtn.textContent = '⏳ በመላክ ላይ...';
+                submitBtn.disabled = true;
+
+                try {
+                    await db.collection('feedback').add({
+                        name: fName || 'ስም ያልገለጸ',
+                        phone: fPhone || '—',
+                        rating: parseInt(fRating),
+                        message: fMessage,
+                        createdAt: new Date()
+                    });
+
+                    const stars = '⭐'.repeat(parseInt(fRating));
+                    const fbMessage =
+`💬 *አዲስ አስተያየት!*
+
+👤 *ስም:* ${fName || 'ስም ያልገለጸ'}
+📱 *ስልክ:* ${fPhone || '—'}
+${stars} (${fRating}/5)
+📝 *አስተያየት:* ${fMessage}
+
+⏰ *ሰዓት:* ${formatEthDateTime(new Date())}`;
+
+                    try {
+                        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ chat_id: CHAT_ID, text: fbMessage, parse_mode: 'Markdown' })
+                        });
+                    } catch (tgErr) {
+                        console.warn('⚠️ Feedback Telegram send failed (non-fatal):', tgErr);
+                    }
+
+                    document.getElementById('feedbackSuccess').style.display = 'block';
+                    this.reset();
+                    showToast('✅ አስተያየትዎ ተልኳል! እናመሰግናለን።', 'success');
+
+                    setTimeout(() => {
+                        document.getElementById('feedbackSuccess').style.display = 'none';
+                    }, 5000);
+
+                } catch (error) {
+                    console.error('❌ Feedback error:', error);
+                    showToast('❌ ስህተት ተከስቷል። እባክዎ ደግመው ይሞክሩ።', 'error');
+                }
+
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            });
+        }
 
         // ============================================================
         // ORDER TRACKING
