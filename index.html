@@ -2670,6 +2670,35 @@
         let mapMarkers = [];
 
         // ============================================================
+        // ✅ NEW FIX: ቴሌግራም ላይ "👷 መድብ" / "✅ አሁን መድብ" ሲነኩ ወደ ዳሽቦርድ ብቻ
+        // ይወስድ ነበር፣ ምንም ግን አይከፈትም ነበር - URL ላይ ያለው ?assignOrder=/?approveRequest=
+        // ፈጽሞ አይነበብም ነበር። አሁን ገፁ ሲከፈት (ወይም admin ሲገባ) ይህ id ተነብቦ
+        // ትዕዛዙ ራሱ በራስ-ሰር ይከፈታል/ይመደብ ዘንድ ይዘጋጃል።
+        // ============================================================
+        const _urlParams = new URLSearchParams(location.search);
+        let pendingAssignOrderId = _urlParams.get('assignOrder') || null;
+        let pendingApproveRequestId = _urlParams.get('approveRequest') || null;
+
+        function tryOpenPendingAssignOrder() {
+            if (!pendingAssignOrderId && !pendingApproveRequestId) return;
+            let found = null;
+            if (pendingAssignOrderId) found = allOrders.find(o => o.id === pendingAssignOrderId);
+            if (!found && pendingApproveRequestId) found = allOrders.find(o => o.assignRequestId === pendingApproveRequestId);
+            if (!found) return; // ገና ዳታው ላይመጣ ይችላል - በሚቀጥለው onSnapshot ድጋሚ ይሞከራል
+
+            const idToOpen = found.id;
+            pendingAssignOrderId = null;
+            pendingApproveRequestId = null;
+
+            switchTab('orders');
+            document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
+            const ordersLink = document.querySelector('.sidebar-nav a[data-tab="orders"]');
+            if (ordersLink) ordersLink.classList.add('active');
+
+            setTimeout(() => viewOrder(idToOpen), 300);
+        }
+
+        // ============================================================
         // ✅ FIX: Password ከ Firestore ጋር Sync ማድረግ
         // ችግሩ፦ ቀድሞ password በ localStorage ብቻ ይቀመጥ ነበር (የአንድ ስልክ/browser ብቻ)።
         // ስለዚህ በአንድ ስልክ ላይ password ቢቀየር፣ በሌላ ስልክ ላይ የቆየው password ብቻ ይሰራል ነበር
@@ -3186,6 +3215,7 @@
                 renderDashNewOrders();
                 updateChart();
                 generateReport('daily');
+                tryOpenPendingAssignOrder(); // ✅ NEW: ከቴሌግራም "መድብ" ቁልፍ ከመጣ ትዕዛዙን በራስ-ሰር ክፈት
             });
         }
 
