@@ -1246,6 +1246,38 @@
         .report-form .totals-grid .field input {
             padding: 6px 10px;
         }
+        .report-form .dynamic-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border-light);
+            flex-wrap: wrap;
+        }
+        .report-form .dynamic-row:last-child { border-bottom: none; }
+        .report-form .dynamic-row .dynamic-row-label {
+            flex: 0 0 auto;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            min-width: 28px;
+        }
+        .report-form .dynamic-row input,
+        .report-form .dynamic-row textarea {
+            flex: 1;
+            min-width: 100px;
+            padding: 6px 10px;
+            font-size: 0.85rem;
+        }
+        .report-form .dynamic-row .remove-row-btn {
+            flex: 0 0 auto;
+            background: none;
+            border: none;
+            color: var(--danger, #EF4444);
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
 
         /* ============================================================
            BOTTOM NAVIGATION (added Report tab)
@@ -2312,23 +2344,38 @@
                         <div class="totals-grid">
                             <div class="field">
                                 <label>1️⃣ የተላኩ ስራዎች ብዛት</label>
-                                <input type="number" id="reportTotalSent" placeholder="0" />
+                                <input type="number" id="reportTotalSent" placeholder="0" min="0" />
                             </div>
                             <div class="field">
                                 <label>2️⃣ የተጠናቀቁ ስራዎች ብዛት</label>
-                                <input type="number" id="reportCompletedCount" placeholder="0" />
+                                <input type="number" id="reportCompletedCount" placeholder="0" min="0" />
                             </div>
                             <div class="field">
                                 <label>3️⃣ ያልተጠናቀቁ ስራዎች ብዛት</label>
-                                <input type="number" id="reportNotCompletedCount" placeholder="0" />
+                                <input type="number" id="reportNotCompletedCount" placeholder="0" min="0" />
                             </div>
+                        </div>
+
+                        <!-- ✅ NEW: የተላኩ ስራዎች ብዛት ሲፃፍ በራሱ በቁጥሩ ልክ የስራ አይነት ማስገቢያዎች ይከፈታሉ -->
+                        <div class="card" id="reportWorkTypesCard" style="background:var(--bg); margin-top:8px; display:none;">
+                            <h4 style="margin-bottom:8px;">🔧 የስራ አይነት ዝርዝር (በተላኩ ስራዎች ብዛት ልክ)</h4>
+                            <div id="reportWorkTypesContainer"></div>
+                        </div>
+
+                        <!-- ✅ NEW: ያልተጠናቀቁ ስራዎች ብዛት ሲፃፍ በራሱ በቁጥሩ ልክ ምክንያት ማስገቢያዎች ይከፈታሉ -->
+                        <div class="card" id="reportNotCompletedReasonsCard" style="background:var(--bg); margin-top:8px; display:none;">
+                            <h4 style="margin-bottom:8px;">📝 ያልተጠናቀቁ ስራዎች ምክንያት (በቁጥሩ ልክ)</h4>
+                            <div id="reportNotCompletedReasonsContainer"></div>
+                        </div>
+
+                        <div class="totals-grid" style="margin-top:8px;">
                             <div class="field">
                                 <label>💰 5️⃣ ጠቅላላ ገቢ</label>
                                 <input type="number" id="reportTotalIncome" placeholder="0" step="0.01" />
                             </div>
                             <div class="field">
                                 <label>🧾 6️⃣ ጠቅላላ ወጪ</label>
-                                <input type="number" id="reportTotalExpense" placeholder="0" step="0.01" />
+                                <input type="number" id="reportTotalExpense" placeholder="0" step="0.01" readonly />
                             </div>
                             <div class="field">
                                 <label>💵 7️⃣ ጠቅላላ ትርፍ</label>
@@ -2336,7 +2383,15 @@
                             </div>
                             <div class="field">
                                 <label>📊 8️⃣ የባለሙያ ድርሻ (%)</label>
-                                <input type="number" id="reportTechSharePercent" placeholder="ለም: 50" step="0.01" />
+                                <input type="number" id="reportTechSharePercent" placeholder="ለም: 50" step="0.01" min="0" max="100" />
+                            </div>
+                            <div class="field">
+                                <label>👨‍🔧 የባለሙያ ድርሻ (ብር)</label>
+                                <input type="number" id="reportTechShareAmount" placeholder="0" step="0.01" readonly />
+                            </div>
+                            <div class="field">
+                                <label>🏢 ለድርጅቱ የሚደርስ (ብር)</label>
+                                <input type="number" id="reportCompanyAmount" placeholder="0" step="0.01" readonly />
                             </div>
                             <div class="field">
                                 <label>🏦 9️⃣ ወደ ድርጅቱ የገባ ገንዘብ</label>
@@ -2344,10 +2399,19 @@
                             </div>
                         </div>
 
-                        <!-- Expense Details -->
-                        <div class="field" style="margin-top:8px;">
-                            <label>🧾 የወጪ ዝርዝር</label>
-                            <textarea id="reportExpenseDetails" placeholder="የወጪ ዝርዝር ይግለጹ..." rows="2"></textarea>
+                        <!-- ✅ NEW: ወጪ ዝርዝር - እያንዳንዱ ወጪ የት/ለምን እንደሆነ (ቦታ) + መጠን ይመዘገባል፣ ጠቅላላ ወጪ በራሱ ይደመራል -->
+                        <div class="card" style="background:var(--bg); margin-top:8px;">
+                            <div class="flex-between">
+                                <h4 style="margin:0;">🧾 የወጪ ዝርዝር ማስገቢያ</h4>
+                                <button type="button" id="addExpenseItemBtn" class="btn btn-sm btn-secondary"><i class="fas fa-plus"></i> ወጪ ጨምር</button>
+                            </div>
+                            <div id="reportExpenseItemsContainer" style="margin-top:8px;">
+                                <p class="text-muted text-center" id="noExpenseItemsMsg">ምንም ወጪ አልተመዘገበም</p>
+                            </div>
+                            <div class="field" style="margin-top:8px;">
+                                <label>🎤 ተጨማሪ ማብራሪያ (አማራጭ)</label>
+                                <textarea id="reportExpenseDetails" placeholder="ተጨማሪ ማብራሪያ ካለ ይግለጹ..." rows="2"></textarea>
+                            </div>
                         </div>
 
                         <!-- Bank Account Info -->
@@ -6309,13 +6373,151 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
                 this.dataset.userEdited = 'true';
                 calcProfit();
             });
-            document.getElementById('reportTotalExpense').addEventListener('input', calcProfit);
+            // ✅ NEW: የባለሙያ ድርሻ (%) ሲቀየር ትርፍ/ድርሻ/የድርጅት ገንዘብ ራሱ በራሱ እንደገና ይሰላል
+            document.getElementById('reportTechSharePercent').addEventListener('input', calcProfit);
+
+            // ✅ NEW: "የተላኩ ስራዎች ብዛት" ሲፃፍ/ሲቀየር በራሱ በቁጥሩ ልክ "የስራ አይነት" ማስገቢያዎች ይከፈታሉ
+            document.getElementById('reportTotalSent').addEventListener('input', function() {
+                renderWorkTypeInputs(this.value);
+            });
+
+            // ✅ NEW: "ያልተጠናቀቁ ስራዎች ብዛት" ሲፃፍ/ሲቀየር በራሱ በቁጥሩ ልክ "ምክንያት" ማስገቢያዎች ይከፈታሉ
+            document.getElementById('reportNotCompletedCount').addEventListener('input', function() {
+                renderNotCompletedReasonInputs(this.value);
+            });
+
+            // ✅ NEW: "ወጪ ጨምር" ቁልፍ - ቦታ + መጠን ያለው ወጪ መስመር ይጨምራል
+            document.getElementById('addExpenseItemBtn').addEventListener('click', function() {
+                addExpenseItemRow();
+            });
         }
 
+        // ============================================================
+        // ✅ NEW: DYNAMIC WORK-TYPE ENTRIES
+        // "የተላኩ ስራዎች ብዛት" ላይ የተፃፈውን ቁጥር ተከትሎ ያንኑ ያክል "የስራ አይነት" ማስገቢያ
+        // ሳጥኖች በራሳቸው ይከፈታሉ (ለምሳሌ 3 ቢፃፍ 3 ማስገቢያ ይታያል)።
+        // ============================================================
+        function renderWorkTypeInputs(count) {
+            const card = document.getElementById('reportWorkTypesCard');
+            const container = document.getElementById('reportWorkTypesContainer');
+            const n = Math.max(0, Math.min(parseInt(count) || 0, 200));
+
+            if (n <= 0) {
+                card.style.display = 'none';
+                container.innerHTML = '';
+                return;
+            }
+
+            card.style.display = 'block';
+            // ቀደም ሲል የተፃፉ ዋጋዎችን ቁጥሩ ሲቀየር እንዳይጠፉ መጠበቅ
+            const existing = Array.from(container.querySelectorAll('.work-type-input')).map(i => i.value);
+            let html = '';
+            for (let i = 0; i < n; i++) {
+                const val = (existing[i] || '').replace(/"/g, '&quot;');
+                html += `
+                    <div class="dynamic-row">
+                        <span class="dynamic-row-label">${i + 1}.</span>
+                        <input type="text" class="work-type-input" placeholder="የስራ አይነት (ለም: ልብስ ማጠቢያ ጥገና)" value="${val}" />
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        // ============================================================
+        // ✅ NEW: DYNAMIC NOT-COMPLETED REASON ENTRIES
+        // "ያልተጠናቀቁ ስራዎች ብዛት" ላይ የተፃፈውን ቁጥር ተከትሎ ያንኑ ያክል "ምክንያት" ማስገቢያ
+        // ሳጥኖች በራሳቸው ይከፈታሉ።
+        // ============================================================
+        function renderNotCompletedReasonInputs(count) {
+            const card = document.getElementById('reportNotCompletedReasonsCard');
+            const container = document.getElementById('reportNotCompletedReasonsContainer');
+            const n = Math.max(0, Math.min(parseInt(count) || 0, 200));
+
+            if (n <= 0) {
+                card.style.display = 'none';
+                container.innerHTML = '';
+                return;
+            }
+
+            card.style.display = 'block';
+            const existing = Array.from(container.querySelectorAll('.not-completed-reason-input')).map(i => i.value);
+            let html = '';
+            for (let i = 0; i < n; i++) {
+                const val = (existing[i] || '').replace(/</g, '&lt;');
+                html += `
+                    <div class="dynamic-row">
+                        <span class="dynamic-row-label">${i + 1}.</span>
+                        <textarea class="not-completed-reason-input" rows="1" placeholder="ያልተጠናቀቀበት ምክንያት...">${val}</textarea>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        // ============================================================
+        // ✅ NEW: EXPENSE ITEMS (ወጪ ቦታ + መጠን)
+        // እያንዳንዱ ወጪ የት/ለምን እንደወጣ (ቦታ) እና ምን ያክል እንደሆነ (መጠን) ይመዘገባል።
+        // ጠቅላላ ወጪ ከነዚህ ድምር በራሱ ይሰላል (calcProfit ውስጥ)።
+        // ============================================================
+        function addExpenseItemRow(location, amount) {
+            const container = document.getElementById('reportExpenseItemsContainer');
+            const emptyMsg = document.getElementById('noExpenseItemsMsg');
+            if (emptyMsg) emptyMsg.remove();
+
+            const row = document.createElement('div');
+            row.className = 'dynamic-row expense-item-row';
+            row.innerHTML = `
+                <input type="text" class="expense-location-input" placeholder="🧾 ወጪ ቦታ / ለምን (ለም: ነዳጅ, መለዋወጫ ገበያ)" value="${String(location || '').replace(/"/g, '&quot;')}" />
+                <input type="number" class="expense-amount-input" placeholder="መጠን" step="0.01" style="flex:0 0 110px;" value="${amount || ''}" />
+                <button type="button" class="remove-row-btn" title="አስወግድ"><i class="fas fa-times-circle"></i></button>
+            `;
+            row.querySelector('.expense-amount-input').addEventListener('input', calcProfit);
+            row.querySelector('.expense-location-input').addEventListener('input', calcProfit);
+            row.querySelector('.remove-row-btn').addEventListener('click', function() {
+                row.remove();
+                if (!document.querySelectorAll('.expense-item-row').length) {
+                    const p = document.createElement('p');
+                    p.className = 'text-muted text-center';
+                    p.id = 'noExpenseItemsMsg';
+                    p.textContent = 'ምንም ወጪ አልተመዘገበም';
+                    document.getElementById('reportExpenseItemsContainer').appendChild(p);
+                }
+                calcProfit();
+            });
+            container.appendChild(row);
+            calcProfit();
+        }
+
+        function getExpenseItems() {
+            return Array.from(document.querySelectorAll('.expense-item-row')).map(row => ({
+                location: row.querySelector('.expense-location-input').value.trim(),
+                amount: parseFloat(row.querySelector('.expense-amount-input').value) || 0
+            }));
+        }
+
+        // ============================================================
+        // ✅ FIX: ካልኩሌተሩ (ትርፍ/ወጪ/% ስሌት) በራሱ አይሰራም ነበር።
+        // አሁን፦ ጠቅላላ ወጪ ከወጪ ዝርዝር (ቦታ+መጠን) መስመሮች ድምር በራሱ ይሰላል፣
+        // ትርፍ = ገቢ - ወጪ በራሱ ይሰላል፣ እና የባለሙያ ድርሻ (%) ተነስቶ የብር መጠኑ
+        // (ለባለሙያው እና ለድርጅቱ) በራሱ ይሰላል።
+        // ============================================================
         function calcProfit() {
             const income = parseFloat(document.getElementById('reportTotalIncome').value) || 0;
-            const expense = parseFloat(document.getElementById('reportTotalExpense').value) || 0;
-            document.getElementById('reportProfit').value = (income - expense).toFixed(2);
+
+            // ወጪ ከወጪ ዝርዝር መስመሮች ድምር በራሱ ይሰላል
+            const expense = getExpenseItems().reduce((sum, item) => sum + item.amount, 0);
+            document.getElementById('reportTotalExpense').value = expense.toFixed(2);
+
+            const profit = income - expense;
+            document.getElementById('reportProfit').value = profit.toFixed(2);
+
+            // የባለሙያ ድርሻ (%) ተነስቶ የብር መጠን ራሱ ይሰላል
+            const sharePercent = parseFloat(document.getElementById('reportTechSharePercent').value) || 0;
+            const techShareAmount = profit * (sharePercent / 100);
+            const companyAmount = profit - techShareAmount;
+            document.getElementById('reportTechShareAmount').value = techShareAmount.toFixed(2);
+            document.getElementById('reportCompanyAmount').value = companyAmount.toFixed(2);
         }
 
         function previewFiles(files, containerId) {
@@ -7449,6 +7651,10 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
             document.getElementById('reportCompletedCount').value = completed;
             document.getElementById('reportNotCompletedCount').value = notCompleted;
 
+            // ✅ NEW: ራስ-ሰር ሲሞላ እንኳ የስራ አይነት / ምክንያት ማስገቢያዎቹ ልክ በቁጥሩ ልክ ይከፈታሉ
+            renderWorkTypeInputs(totalSent);
+            renderNotCompletedReasonInputs(notCompleted);
+
             // ✅ NEW: Auto-aggregation - የተጠናቀቁ ስራዎች ገቢ (price) በራስ-ሰር ወደ ጠቅላላ ገቢ ይደመራል
             // ችግሩ ቀድሞ፦ ቴክኒሻን በ"አጠናቅ" ትር ላይ ዋጋ ካስገባ በኋላ በ"ሪፖርት" ትር ላይ ተመሳሳይ ቁጥር በድጋሚ በእጅ መጻፍ ነበረበት
             const autoIncome = completedJobs.reduce((sum, o) => sum + (parseFloat(o.price) || 0), 0);
@@ -7467,6 +7673,9 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
                 incomeField.parentElement.appendChild(autoNote);
             }
             autoNote.textContent = completed > 0 ? `✅ ከ ${completed} የተጠናቀቁ ስራዎች በራስ-ሰር ተደምሯል (ካስፈለገ ማስተካከል ይችላሉ)` : '';
+
+            // ✅ FIX: ገቢው በእጅ ያልተቀየረ ቢሆንም ባይሆንም፣ ወጪ/ትርፍ/ድርሻ ስሌት ሁልጊዜ ወቅታዊ እንዲሆን
+            calcProfit();
 
             // Build job list with status dropdown
             let html = '';
@@ -7535,10 +7744,25 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
             const totalExpense = parseFloat(document.getElementById('reportTotalExpense').value) || 0;
             const profit = parseFloat(document.getElementById('reportProfit').value) || 0;
             const techSharePercent = parseFloat(document.getElementById('reportTechSharePercent').value) || 0;
+            const techShareAmount = parseFloat(document.getElementById('reportTechShareAmount').value) || 0;
+            const companyAmount = parseFloat(document.getElementById('reportCompanyAmount').value) || 0;
             const deposited = parseFloat(document.getElementById('reportDeposited').value) || 0;
             const expenseDetails = document.getElementById('reportExpenseDetails').value.trim();
             const remarks = document.getElementById('reportRemarks').value.trim();
             const readyTomorrow = document.querySelector('input[name="readyTomorrow"]:checked')?.value || '';
+
+            // ✅ NEW: "የተላኩ ስራዎች ብዛት" ልክ የተመዘገቡ የስራ አይነቶች
+            const workTypes = Array.from(document.querySelectorAll('.work-type-input'))
+                .map(i => i.value.trim())
+                .filter(v => v);
+
+            // ✅ NEW: "ያልተጠናቀቁ ስራዎች ብዛት" ልክ የተመዘገቡ ምክንያቶች
+            const notCompletedReasons = Array.from(document.querySelectorAll('.not-completed-reason-input'))
+                .map(i => i.value.trim())
+                .filter(v => v);
+
+            // ✅ NEW: የወጪ ዝርዝር (ቦታ + መጠን)
+            const expenseItems = getExpenseItems();
 
             // Upload warranty photos (compressed first so uploads are fast and data-friendly)
             const warrantyFiles = document.getElementById('reportWarrantyPhotos').files;
@@ -7583,10 +7807,15 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
                 completedCount: completedCount,
                 notCompletedCount: notCompletedCount,
                 jobStatuses: jobStatuses,
+                workTypes: workTypes,
+                notCompletedReasons: notCompletedReasons,
                 totalIncome: totalIncome,
                 totalExpense: totalExpense,
+                expenseItems: expenseItems,
                 profit: profit,
                 techSharePercent: techSharePercent,
+                techShareAmount: techShareAmount,
+                companyAmount: companyAmount,
                 deposited: deposited,
                 expenseDetails: expenseDetails,
                 remarks: remarks,
@@ -7609,6 +7838,7 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
                 📅 *ቀን:* ${reportData.date} (${reportData.day})
                 📊 *የተላኩ:* ${totalSent} | *ተጠናቀቁ:* ${completedCount} | *አልተጠናቀቁ:* ${notCompletedCount}
                 💰 *ገቢ:* ${totalIncome} ብር | *ወጪ:* ${totalExpense} ብር | *ትርፍ:* ${profit} ብር
+                📊 *ድርሻ:* ${techSharePercent}% (ባለሙያ ${techShareAmount} ብር | ድርጅት ${companyAmount} ብር)
                 🏦 *የተቀማጭ:* ${deposited} ብር
                 📝 *ማብራሪያ:* ${remarks || '—'}
                 ✅ *ለነገ ዝግጁ:* ${readyTomorrow === 'yes' ? 'አዎ' : 'አይ'}
@@ -7627,6 +7857,11 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
 
                 // ✅ NEW: userEdited ምልክት ማጽዳት - ለቀጣዩ ቀን auto-aggregation ዳግም እንዲሰራ
                 delete document.getElementById('reportTotalIncome').dataset.userEdited;
+
+                // ✅ NEW: ለቀጣዩ ቀን ንፁህ ሆኖ እንዲጀምር የወጪ ዝርዝር ማስገቢያዎችን ማጽዳት
+                document.getElementById('reportExpenseItemsContainer').innerHTML =
+                    '<p class="text-muted text-center" id="noExpenseItemsMsg">ምንም ወጪ አልተመዘገበም</p>';
+                calcProfit();
 
             } catch (error) {
                 showToast('❌ ሪፖርት መላክ አልተቻለም: ' + error.message, 'error');
