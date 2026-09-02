@@ -1311,6 +1311,24 @@
         .bottom-nav a i { font-size: 1.2rem; }
         .bottom-nav a.active { color: var(--secondary); }
         .bottom-nav a:hover { color: var(--secondary); }
+        /* ✅ NEW: "አዲስ ስራ" ማንቂያ ቀይ ነጥብ */
+        .bottom-nav a.has-new-job { position: relative; }
+        .bottom-nav a.has-new-job i::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -4px;
+            width: 9px;
+            height: 9px;
+            background: var(--emergency, #EF4444);
+            border-radius: 50%;
+            border: 2px solid var(--primary-dark);
+            animation: pulseBadge 1.2s ease-in-out infinite;
+        }
+        @keyframes pulseBadge {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.7; }
+        }
 
         /* ============================================================
            RESPONSIVE
@@ -1607,6 +1625,7 @@
                 <div class="card">
                     <div class="card-header">
                         <h3><i class="fas fa-clipboard-list"></i> 📋 ትዕዛዞች</h3>
+                        <button class="btn btn-primary btn-sm" onclick="showAddPhoneOrderModal()"><i class="fas fa-phone-volume"></i> 📞 በስልክ የተደወለ ስራ ጨምር</button>
                     </div>
                     <div class="filters" style="margin-bottom:16px;">
                         <select id="orderFilter">
@@ -5075,6 +5094,128 @@ ${locationLine}
         }
 
         // ============================================================
+        // ✅ NEW: በስልክ የተደወለ ስራ በእጅ መጨመሪያ (Admin manually adds a phone-called job)
+        // አድሚን ደንበኛ በቀጥታ በስልክ ሲደውል፣ ድህረ ገጹን ሳይሞላ በራሱ አድሚን ገጽ ላይ ትዕዛዙን
+        // ጽፎ መላክ እና ወዲያውኑ ለቴክኒሻን መመደብ ይችላል።
+        // ============================================================
+        function showAddPhoneOrderModal() {
+            const techOptions = allTechnicians.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
+            const bodyHTML = `
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>ሙሉ ስም *</label>
+                        <input type="text" id="phoneOrderName" placeholder="ሙሉ ስም" />
+                    </div>
+                    <div class="form-group">
+                        <label>ስልክ ቁጥር *</label>
+                        <input type="tel" id="phoneOrderPhone" placeholder="ስልክ ቁጥር" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>አድራሻ (ክፍለ ከተማ እና ሰፈር) *</label>
+                    <input type="text" id="phoneOrderAddress" placeholder="አድራሻ" />
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>መሳሪያ *</label>
+                        <select id="phoneOrderAppliance">
+                            <option value="">መሳሪያ ይምረጡ</option>
+                            <option value="Washing Machine">የልብስ ማጠቢያ ማሽን</option>
+                            <option value="Refrigerator">ማቀዝቀዣ</option>
+                            <option value="Television">ቴሌቪዥን</option>
+                            <option value="Oven">ኦቭን</option>
+                            <option value="Boiler">ቦይለር</option>
+                            <option value="Other">ሌላ</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>መች ይመቻቻል</label>
+                        <select id="phoneOrderPreferredDay">
+                            <option value="ዛሬውኑ (በፍጥነት)">ዛሬውኑ (በፍጥነት)</option>
+                            <option value="ሰኞ">ሰኞ (Monday)</option>
+                            <option value="ማክሰኞ">ማክሰኞ (Tuesday)</option>
+                            <option value="ረቡዕ">ረቡዕ (Wednesday)</option>
+                            <option value="ሐሙስ">ሐሙስ (Thursday)</option>
+                            <option value="አርብ">አርብ (Friday)</option>
+                            <option value="ቅዳሜ">ቅዳሜ (Saturday)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>ችግር / ማብራሪያ</label>
+                    <textarea id="phoneOrderProblem" placeholder="ችግሩን በዝርዝር ይግለጹ..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>ወዲያውኑ ለቴክኒሻን መድብ (አማራጭ)</label>
+                    <select id="phoneOrderTechnician">
+                        <option value="">— ያለ መድብ ("Pending" ሆኖ ይቆያል) —</option>
+                        ${techOptions}
+                    </select>
+                </div>
+                <button class="btn btn-success" onclick="submitPhoneOrder()"><i class="fas fa-save"></i> ትዕዛዝ አስገባ</button>
+            `;
+            openModal('📞 በስልክ የተደወለ ስራ ጨምር', bodyHTML);
+        }
+
+        async function submitPhoneOrder() {
+            const fullName = document.getElementById('phoneOrderName').value.trim();
+            const phone = document.getElementById('phoneOrderPhone').value.trim();
+            const address = document.getElementById('phoneOrderAddress').value.trim();
+            const appliance = document.getElementById('phoneOrderAppliance').value;
+            const preferredDay = document.getElementById('phoneOrderPreferredDay').value;
+            const problem = document.getElementById('phoneOrderProblem').value.trim();
+            const technician = document.getElementById('phoneOrderTechnician').value;
+
+            if (!fullName || !phone || !address || !appliance) {
+                showToast('እባክዎ ስም፣ ስልክ፣ አድራሻ እና መሳሪያ ይሙሉ', 'error');
+                return;
+            }
+
+            try {
+                const orderData = {
+                    fullName: fullName,
+                    phone: phone,
+                    address: address,
+                    appliance: appliance,
+                    preferredDay: preferredDay,
+                    problem: problem || 'በስልክ የተደወለ ስራ',
+                    status: 'Pending',
+                    source: 'phone_admin', // ✅ NEW: ከድህረ ገጽ ሳይሆን አድሚን በእጅ የመዘገበው ስራ መሆኑን ለመለየት
+                    createdBy: 'admin',
+                    createdAt: new Date()
+                };
+
+                const docRef = await db.collection('orders').add(orderData);
+
+                await db.collection('activity').add({
+                    user: 'አስተዳዳሪ',
+                    action: 'add_phone_order',
+                    details: `📞 በስልክ ትዕዛዝ ተመዘገበ: ${fullName} - ${appliance}`,
+                    timestamp: new Date()
+                });
+
+                closeModal();
+                showToast(`✅ የ ${fullName} ትዕዛዝ ተመዝግቧል`, 'success');
+
+                // ወዲያውኑ ቴክኒሻን ከተመረጠ፣ ነባሩን assignOrder() pipeline ተጠቅሞ ይመድብ
+                // (Telegram + push notification ሁሉ በራሱ ይላካል)
+                if (technician) {
+                    const fakeSelect = document.createElement('select');
+                    fakeSelect.className = 'assignSelect';
+                    fakeSelect.dataset.id = docRef.id;
+                    fakeSelect.innerHTML = `<option value="${technician}" selected>${technician}</option>`;
+                    fakeSelect.value = technician;
+                    document.body.appendChild(fakeSelect);
+                    await assignOrder(docRef.id);
+                    fakeSelect.remove();
+                }
+            } catch (error) {
+                showToast('❌ ' + error.message, 'error');
+                console.error(error);
+            }
+        }
+
+        // ============================================================
         // RENDER STAFF
         // ============================================================
         function renderStaff() {
@@ -6174,6 +6315,7 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
         let technicianId = '';
         let currentStatus = 'free';
         let myOrders = [];
+        let myOrdersFirstLoadDone = false; // ✅ NEW: የመጀመሪያው load ላይ ላሉት ነባር ስራዎች ማንቂያ እንዳይነሳ
         let myHistory = [];
         let selectedOption = '';
         let isRulesAccepted = false;
@@ -6540,6 +6682,8 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
                     e.preventDefault();
                     document.querySelectorAll('#bottomNav a').forEach(a => a.classList.remove('active'));
                     this.classList.add('active');
+                    // ✅ NEW: "አዲስ ስራ" ማንቂያ ነጥብ ትር ሲነካ ይጠፋ
+                    this.classList.remove('has-new-job');
 
                     const tab = this.dataset.tab;
                     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -6846,6 +6990,37 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
         // ============================================================
         // LOAD MY ORDERS - FIXED for arrays
         // ============================================================
+        // ============================================================
+        // ✅ NEW: NEW JOB NOTIFICATION (ለቴክኒሻን)
+        // አድሚን አዲስ ስራ ሲልክ/ሲመድብ ቴክኒሻኑ dashboard ላይ ተከፍቶ ካለ ወዲያውኑ ያውቃል።
+        // ============================================================
+        function techNotifyNewJob(order) {
+            // 1) ድምጽ (አድሚን ገጽ ላይ ካለው ተመሳሳይ beep function ይጠቀማል)
+            try { playNewOrderBeep(); } catch (e) { console.warn('Beep failed (non-fatal):', e); }
+
+            // 2) Toast
+            showToast(`🆕 አዲስ ስራ ተመድቦልዎታል፦ ${order.fullName || 'ደንበኛ'} — ${order.appliance || ''}`, 'success');
+
+            // 3) ትብ (tab) ርዕስ ብልጭ ድርግም - ሌላ tab ላይ ካሉ እንዲያውቁ
+            if (document.hidden) flashDocTitle('🆕 አዲስ ስራ ደረሰ!');
+
+            // 4) Browser system notification (ፍቃድ ካለ - registerPushToken() ላይ ተጠይቋል)
+            try {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('🆕 አዲስ ስራ ተመድቦልዎታል', {
+                        body: `${order.fullName || 'ደንበኛ'} — ${order.appliance || ''} — ${order.address || ''}`,
+                        icon: 'icon-192.png'
+                    });
+                }
+            } catch (e) { console.warn('Notification popup failed (non-fatal):', e); }
+
+            // 5) "ስራዎች" ትር ራሱ ወደ front እንዲመጣ ካልሆነ ብቻ ትኩረት እንዲስብ home tab ላይ badge
+            const homeTab = document.querySelector('#bottomNav a[data-tab="home"]');
+            if (homeTab && !homeTab.classList.contains('active')) {
+                homeTab.classList.add('has-new-job');
+            }
+        }
+
         function loadMyOrders() {
             // ✅ FIX: .where + .orderBy different fields ስለ ሆነ Firestore composite index
             // ይጠይቅ ነበር (ካልተፈጠረ silently ይከሽፍ ነበር) - ለዚያ ነው ስራ ገፁ ላይ ፈጽሞ ያልታየው!
@@ -6853,6 +7028,19 @@ ${telegram ? `📱 *ቴሌግራም:* ${telegram}` : ''}
             db.collection('orders')
                 .where('technician', '==', technicianName)
                 .onSnapshot((snapshot) => {
+                    // ✅ NEW: አድሚን አዲስ ስራ ለዚህ ቴክኒሻን ሲልክ (ወይም ወደዚህ ቴክኒሻን ሲያዛውር) በቀጥታ
+                    // (dashboard ላይ ተከፍቶ ካለ) ድምጽ + Toast + Browser ማሳወቂያ ይደርሰዋል።
+                    // የመጀመሪያው load ላይ ላሉት ነባር ስራዎች ማንቂያ እንዳይነሳ ይጠንቀቅ።
+                    if (myOrdersFirstLoadDone) {
+                        snapshot.docChanges().forEach(change => {
+                            if (change.type === 'added') {
+                                techNotifyNewJob(change.doc.data());
+                            }
+                        });
+                    } else {
+                        myOrdersFirstLoadDone = true;
+                    }
+
                     myOrders = [];
                     snapshot.forEach(doc => {
                         const data = doc.data();
