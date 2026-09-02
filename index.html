@@ -1358,36 +1358,7 @@
                     <div class="error-message" id="loginError">❌ የተሳሳተ ስልክ ቁጥር ወይም የይለፍ ቃል</div>
                 </form>
                 <div class="login-footer" style="margin-top:14px;">
-                    <a href="#" onclick="showAuthPane('register'); return false;">📝 አካውንት የለዎትም? ይመዝገቡ</a><br/>
-                    <a href="#" onclick="showAuthPane('forgot'); return false;" style="margin-top:6px; display:inline-block;">🔑 የይለፍ ቃል ረሱ?</a>
-                </div>
-            </div>
-
-            <!-- ===== FORGOT PASSWORD (ራስ-አገልግሎት ጥያቄ - አድሚን ማጽደቅ ይጠይቃል) ===== -->
-            <div id="forgotPane" style="display:none;">
-                <p style="color:#94A3B8; font-size:0.85rem; margin-bottom:14px;">
-                    ስልክ ቁጥርዎን እና አዲስ የይለፍ ቃል ያስገቡ። ጥያቄው ወደ አስተዳዳሪው ይላካል፣ አስተዳዳሪው ካፀደቀ በኋላ አዲሱ የይለፍ ቃል ስራ ላይ ይውላል።
-                </p>
-                <form id="forgotPasswordForm">
-                    <div class="form-group">
-                        <label>📱 ስልክ ቁጥር</label>
-                        <input type="tel" id="forgotPhone" placeholder="ለምሳሌ: 09XXXXXXXX" required />
-                    </div>
-                    <div class="form-group">
-                        <label>🔒 አዲስ የይለፍ ቃል</label>
-                        <input type="password" id="forgotNewPassword" placeholder="አዲስ የይለፍ ቃል ይምረጡ" required minlength="4" />
-                    </div>
-                    <div class="form-group">
-                        <label>🔒 አዲስ የይለፍ ቃል (ድጋሚ)</label>
-                        <input type="password" id="forgotNewPasswordConfirm" placeholder="አዲሱን የይለፍ ቃል ይድገሙት" required minlength="4" />
-                    </div>
-                    <button type="submit" class="btn-login" id="forgotBtn">
-                        <i class="fas fa-paper-plane"></i> ጥያቄ ላክ
-                    </button>
-                    <div class="error-message" id="forgotError">❌ ስህተት ተፈጥሯል</div>
-                </form>
-                <div class="login-footer" style="margin-top:14px;">
-                    <a href="#" onclick="showAuthPane('login'); return false;">🔙 ወደ መግቢያ ተመለስ</a>
+                    <a href="#" onclick="showAuthPane('register'); return false;">📝 አካውንት የለዎትም? ይመዝገቡ</a>
                 </div>
             </div>
 
@@ -1675,17 +1646,6 @@
                         <table>
                             <thead><tr><th>ስም</th><th>ስልክ</th><th>አድራሻ</th><th>የተመዘገበበት</th><th>እርምጃ</th></tr></thead>
                             <tbody id="pendingRegBody"><tr><td colspan="5" class="text-center text-muted">ምንም አዲስ ተመዝጋቢ የለም</td></tr></tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="card" id="pendingPasswordResetCard" style="margin-bottom:16px;">
-                    <div class="card-header">
-                        <h3><i class="fas fa-key"></i> 🔐 የይለፍ ቃል ዳግም ማስጀመሪያ ጥያቄዎች <span class="badge" id="pendingPassResetBadge">0</span></h3>
-                    </div>
-                    <div class="table-wrap">
-                        <table>
-                            <thead><tr><th>ስም</th><th>ስልክ</th><th>የተጠየቀበት</th><th>እርምጃ</th></tr></thead>
-                            <tbody id="pendingPassResetBody"><tr><td colspan="4" class="text-center text-muted">ምንም ጥያቄ የለም</td></tr></tbody>
                         </table>
                     </div>
                 </div>
@@ -2747,7 +2707,6 @@
         let allCustomers = [];
         let allTechnicians = [];
         let allPendingRegistrations = []; // ✅ NEW: ራሳቸውን የመዘገቡ ግን ገና ያልፀደቁ ተጠቃሚዎች
-        let allPendingPasswordResets = []; // ✅ NEW: 'የይለፍ ቃል ረሱ' ጥያቄ ያቀረቡ ግን ገና ያልፀደቁ ተጠቃሚዎች
         let allStaff = [];
         let allDailyReports = []; // ✅ NEW: የባለሙያዎች ዕለታዊ ሪፖርት ዳታ
         let allComments = []; // ✅ NEW: ከ ቴክኒሻን/ወደ ቴክኒሻን የተላኩ መልዕክቶች
@@ -2832,13 +2791,11 @@
         function showAuthPane(pane) {
             document.getElementById('loginPane').style.display = pane === 'login' ? 'block' : 'none';
             document.getElementById('registerPane').style.display = pane === 'register' ? 'block' : 'none';
-            document.getElementById('forgotPane').style.display = pane === 'forgot' ? 'block' : 'none';
             document.getElementById('pendingPane').style.display = pane === 'pending' ? 'block' : 'none';
             const subtitle = document.getElementById('loginRoleSubtitle');
             if (!subtitle) return;
             if (pane === 'login') subtitle.textContent = 'ግቡ ወይም ይመዝገቡ';
             else if (pane === 'register') subtitle.textContent = 'አዲስ ምዝገባ';
-            else if (pane === 'forgot') subtitle.textContent = 'የይለፍ ቃል ዳግም ማስጀመሪያ';
             else subtitle.textContent = 'ማጽደቅ በመጠበቅ ላይ...';
         }
 
@@ -3035,95 +2992,6 @@
 
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-user-plus"></i> ተመዝገብ';
-        });
-
-        // ============================================================
-        // ✅ NEW: FORGOT PASSWORD - ራስ-አገልግሎት ጥያቄ (አድሚን ማጽደቅ ይጠይቃል)
-        // ደንበኛ/ቴክኒሻን ራሱ በቀጥታ password ን መቀየር አይችልም (ስልክ ቁጥር ብቻ ስለሚያውቅ
-        // ማንም ሰው ራሱን ሌላ ሰው መስሎ password እንዳይቀይር) - ጥያቄው በ 'pendingPasswordReset'
-        // ውስጥ ተቀምጦ አድሚኑ ካፀደቀ በኋላ ብቻ ትክክለኛው 'password' ይተካል።
-        // ============================================================
-        document.getElementById('forgotPasswordForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const phone = document.getElementById('forgotPhone').value.trim();
-            const newPassword = document.getElementById('forgotNewPassword').value;
-            const confirmPassword = document.getElementById('forgotNewPasswordConfirm').value;
-            const errorEl = document.getElementById('forgotError');
-            const btn = document.getElementById('forgotBtn');
-
-            errorEl.classList.remove('show');
-
-            if (!phone || !newPassword || !confirmPassword) {
-                errorEl.textContent = '❌ እባክዎ ሁሉንም መስኮች ይሙሉ';
-                errorEl.classList.add('show');
-                return;
-            }
-            if (newPassword.length < 4) {
-                errorEl.textContent = '❌ የይለፍ ቃል ቢያንስ 4 ፊደል/ቁጥር ሊኖረው ይገባል';
-                errorEl.classList.add('show');
-                return;
-            }
-            if (newPassword !== confirmPassword) {
-                errorEl.textContent = '❌ ያስገቡት አዲስ የይለፍ ቃል አይመሳሰልም';
-                errorEl.classList.add('show');
-                return;
-            }
-
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> በመላክ ላይ...';
-
-            await passwordSyncReady;
-
-            try {
-                const snap = await db.collection('staff').where('phone', '==', phone).get();
-                if (snap.empty) {
-                    errorEl.textContent = '❌ ይህ ስልክ ቁጥር (' + phone + ') በሲስተሙ ውስጥ አልተመዘገበም';
-                    errorEl.classList.add('show');
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-paper-plane"></i> ጥያቄ ላክ';
-                    return;
-                }
-
-                const staffDoc = snap.docs[0];
-                const staffData = staffDoc.data();
-
-                if (staffData.status === 'rejected') {
-                    errorEl.textContent = '⛔ ይህ አካውንት ውድቅ ተደርጓል - አድሚኑን ያነጋግሩ';
-                    errorEl.classList.add('show');
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-paper-plane"></i> ጥያቄ ላክ';
-                    return;
-                }
-
-                await db.collection('staff').doc(staffDoc.id).update({
-                    pendingPasswordReset: newPassword,
-                    pendingPasswordResetAt: new Date()
-                });
-
-                await db.collection('activity').add({
-                    user: staffData.name || phone,
-                    action: 'forgot_password_request',
-                    details: `${staffData.name || phone} (${phone}) አዲስ የይለፍ ቃል ጠይቋል - ማጽደቅ በመጠበቅ ላይ`,
-                    timestamp: new Date()
-                });
-
-                const dashboardUrl = location.origin + location.pathname;
-                await sendTelegramNotificationWithButton(
-                    `🔐 *የይለፍ ቃል ዳግም ማስጀመሪያ ጥያቄ!*\n\n👤 *ስም:* ${staffData.name || '—'}\n📱 *ስልክ:* ${phone}\n\nይህ ጥያቄ እርስዎ (ወይም ሌላ ሰው) ካላቀረበው፣ እባክዎ ውድቅ ያድርጉት።\n\n⏰ ${formatEthDateTime(new Date())}`,
-                    '🔐 ዳሽቦርድ ከፍቶ ማጽደቅ',
-                    dashboardUrl
-                );
-
-                document.getElementById('forgotPasswordForm').reset();
-                showToast('✅ ጥያቄዎ ተልኳል! አድሚኑ ካፀደቀ በኋላ አዲሱ የይለፍ ቃል ስራ ላይ ይውላል።', 'success');
-                showAuthPane('login');
-            } catch (error) {
-                errorEl.textContent = '❌ ' + error.message;
-                errorEl.classList.add('show');
-            }
-
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-paper-plane"></i> ጥያቄ ላክ';
         });
 
         // ============================================================
@@ -3486,7 +3354,6 @@
             db.collection('staff').onSnapshot((snapshot) => {
                 allTechnicians = [];
                 allPendingRegistrations = [];
-                allPendingPasswordResets = [];
                 snapshot.forEach(doc => {
                     const data = doc.data();
                     data.id = doc.id;
@@ -3495,14 +3362,9 @@
                     } else if (data.role !== 'admin' && data.status !== 'rejected') {
                         allTechnicians.push(data);
                     }
-                    // ✅ NEW: pendingPasswordReset ካለው (ደረጃው/ሚናው ምንም ይሁን) ለአጽዳቂ ዝርዝር ውስጥ ይጨመር
-                    if (data.pendingPasswordReset) {
-                        allPendingPasswordResets.push(data);
-                    }
                 });
                 renderTechnicians();
                 renderPendingRegistrations();
-                renderPendingPasswordResets();
                 renderDashNewOrders();
                 updateStats();
             });
@@ -3563,78 +3425,6 @@
                     timestamp: new Date()
                 });
                 showToast('⛔ ተመዝጋቢው ውድቅ ተደርጓል', 'info');
-            } catch (error) {
-                showToast('❌ ' + error.message, 'error');
-            }
-        }
-
-        // ============================================================
-        // ✅ NEW: 'የይለፍ ቃል ረሱ' ጥያቄዎች - ማጽደቅ/ውድቅ ማድረግ
-        // ============================================================
-        function renderPendingPasswordResets() {
-            const body = document.getElementById('pendingPassResetBody');
-            if (!body) return;
-            const badge = document.getElementById('pendingPassResetBadge');
-            if (badge) badge.textContent = allPendingPasswordResets.length;
-            if (allPendingPasswordResets.length === 0) {
-                body.innerHTML = '<tr><td colspan="4" class="text-center text-muted">ምንም ጥያቄ የለም</td></tr>';
-                return;
-            }
-            let html = '';
-            allPendingPasswordResets.forEach(p => {
-                html += `<tr>
-                    <td><strong>${p.name || '—'}</strong></td>
-                    <td>${p.phone || '—'}</td>
-                    <td>${formatEthDateTime(p.pendingPasswordResetAt) || '—'}</td>
-                    <td>
-                        <button class="btn btn-xs btn-success" onclick="approvePasswordReset('${p.id}')"><i class="fas fa-check"></i> አጽድቅ</button>
-                        <button class="btn btn-xs btn-danger" onclick="rejectPasswordReset('${p.id}')"><i class="fas fa-times"></i> ውድቅ</button>
-                    </td>
-                </tr>`;
-            });
-            body.innerHTML = html;
-        }
-
-        async function approvePasswordReset(id) {
-            if (!confirm('አዲሱን የይለፍ ቃል ስራ ላይ ማዋል እርግጠኛ ነዎት?')) return;
-            try {
-                const doc = await db.collection('staff').doc(id).get();
-                const data = doc.data();
-                if (!data || !data.pendingPasswordReset) {
-                    showToast('❌ ይህ ጥያቄ ከዚህ በፊት ተስተናግዷል', 'error');
-                    return;
-                }
-                await db.collection('staff').doc(id).update({
-                    password: data.pendingPasswordReset,
-                    pendingPasswordReset: firebase.firestore.FieldValue.delete(),
-                    pendingPasswordResetAt: firebase.firestore.FieldValue.delete()
-                });
-                await db.collection('activity').add({
-                    user: 'አስተዳዳሪ',
-                    action: 'approve_password_reset',
-                    details: `${data.name || data.phone} ላይ የይለፍ ቃል ዳግም ተጀምሯል`,
-                    timestamp: new Date()
-                });
-                showToast('✅ አዲሱ የይለፍ ቃል ስራ ላይ ውሏል', 'success');
-            } catch (error) {
-                showToast('❌ ' + error.message, 'error');
-            }
-        }
-
-        async function rejectPasswordReset(id) {
-            if (!confirm('ይህን ጥያቄ ውድቅ ማድረግ እርግጠኛ ነዎት? (የቆየው የይለፍ ቃል እንደነበረ ይቆያል)')) return;
-            try {
-                await db.collection('staff').doc(id).update({
-                    pendingPasswordReset: firebase.firestore.FieldValue.delete(),
-                    pendingPasswordResetAt: firebase.firestore.FieldValue.delete()
-                });
-                await db.collection('activity').add({
-                    user: 'አስተዳዳሪ',
-                    action: 'reject_password_reset',
-                    details: `የይለፍ ቃል ዳግም ማስጀመሪያ ጥያቄ ውድቅ ተደርጓል`,
-                    timestamp: new Date()
-                });
-                showToast('⛔ ጥያቄው ውድቅ ተደርጓል', 'info');
             } catch (error) {
                 showToast('❌ ' + error.message, 'error');
             }
@@ -3961,7 +3751,6 @@
             }
 
             const techOptions = allTechnicians.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
-            const noTechFallback = '<option value="" disabled>-- ምንም ያፀደቁ ቴክኒሻን የለም፣ በ"አዲስ ተመዝጋቢዎች" ካርድ ላይ ያፅድቁ --</option>';
 
             list.innerHTML = pendingOrders.slice(0, 8).map(order => {
                 const date = order.createdAt?.toDate?.() || new Date();
@@ -3972,7 +3761,7 @@
                     </div>
                     <select class="dashAssignSelect" data-id="${order.id}" style="padding:4px 8px; font-size:0.78rem; border:1px solid var(--border); border-radius:6px;">
                         <option value="">ቴክኒሻን ምረጥ</option>
-                        ${techOptions || noTechFallback}
+                        ${techOptions}
                     </select>
                     <button class="btn btn-sm btn-success" onclick="assignOrder('${order.id}')"><i class="fas fa-check"></i> መድብ</button>
                     <button class="btn btn-sm btn-primary" onclick="viewOrder('${order.id}')"><i class="fas fa-eye"></i></button>
@@ -4017,7 +3806,6 @@
                 const techOptions = allTechnicians.map(t =>
                     `<option value="${t.name}">${t.name}</option>`
                 ).join('');
-                const noTechFallback = '<option value="" disabled>-- ምንም ያፀደቁ ቴክኒሻን የለም --</option>';
 
                 let actions = '';
                 if (order.status === 'Pending') {
@@ -4025,7 +3813,7 @@
                         <button class="btn btn-xs btn-primary" onclick="viewOrder('${order.id}')"><i class="fas fa-eye"></i></button>
                         <select class="assignSelect" data-id="${order.id}" style="padding:2px 6px; font-size:0.7rem; width:100px; border:1px solid var(--border); border-radius:4px;">
                             <option value="">ምረጥ</option>
-                            ${techOptions || noTechFallback}
+                            ${techOptions}
                         </select>
                         <button class="btn btn-xs btn-secondary" onclick="recommendTechnician('${order.id}')" title="ራስ-ሰር ዝቅተኛ ስራ ያለበትን ቴክኒሻን ምከር"><i class="fas fa-robot"></i></button>
                         <button class="btn btn-xs btn-success" onclick="assignOrder('${order.id}')"><i class="fas fa-check"></i> ምድብ</button>
